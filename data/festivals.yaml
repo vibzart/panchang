@@ -1,0 +1,602 @@
+# Lilavati Festival Definitions
+#
+# Festival specs for the Hindu calendar engine.
+# Each festival is defined by its astronomical rule:
+#   - tithi_at_sunrise: festival falls on the day when the specified tithi
+#     prevails at sunrise in the specified lunar month
+#   - sankranti: festival falls on the Gregorian date of a solar transit
+#
+# Tithi numbering: 1-15 = Shukla Paksha, 16-30 = Krishna Paksha
+#   1=Pratipada, 2=Dvitiya, ..., 15=Purnima,
+#   16=K.Pratipada, ..., 25=K.Dashami, 26=K.Ekadashi, ..., 29=K.Chaturdashi, 30=Amavasya
+#
+# Lunar month numbering: 1=Chaitra, 2=Vaishakha, 3=Jyeshtha, 4=Ashadha,
+#   5=Shravana, 6=Bhadrapada, 7=Ashwin, 8=Kartik, 9=Margashirsha,
+#   10=Pausha, 11=Magha, 12=Phalguna
+#
+# Sankranti index (calendar-year order):
+#   0=Makar, 1=Kumbha, 2=Meena, 3=Mesha, 4=Vrishabha, 5=Mithuna,
+#   6=Karka, 7=Simha, 8=Kanya, 9=Tula, 10=Vrischika, 11=Dhanu
+#
+# Regions:
+#   all          = Pan-Bhāratīya
+#   north_india  = UP, MP, Rajasthan, Bihar, Jharkhand, etc.
+#   south_india  = Karnataka, Andhra, Telangana, Tamil Nadu, Kerala
+#   maharashtra  = Maharashtra
+#   gujarat      = Gujarat
+#   bengal       = West Bengal, Tripura, Assam (Bengali traditions)
+#   punjab       = Punjab, Haryana
+#   odisha       = Odisha
+#   tamil_nadu   = Tamil Nadu
+#   kerala       = Kerala
+#   assam        = Assam
+
+festivals:
+
+  # ==========================================================================
+  # SANKRANTI-BASED (Solar Transit) Festivals
+  # ==========================================================================
+
+  - id: makar_sankranti
+    name: Makar Sankranti
+    description: Sun enters Capricorn — harvest festival, kite flying
+    rule: sankranti
+    sankranti_index: 0
+    aliases: [Pongal, Lohri, Magh Bihu, Uttarayan]
+    regions: [all]
+
+  - id: baisakhi
+    name: Baisakhi
+    description: Sun enters Aries — harvest festival, Sikh New Year
+    rule: sankranti
+    sankranti_index: 3
+    aliases: [Vishu, Puthandu, Pohela Boishakh, Bihu]
+    regions: [punjab]
+
+  - id: vishu
+    name: Vishu
+    description: Sun enters Aries — Malayali New Year
+    rule: sankranti
+    sankranti_index: 3
+    regions: [kerala]
+
+  - id: puthandu
+    name: Puthandu
+    description: Sun enters Aries — Tamil New Year
+    rule: sankranti
+    sankranti_index: 3
+    regions: [tamil_nadu]
+
+  - id: pohela_boishakh
+    name: Pohela Boishakh
+    description: Sun enters Aries — Bengali New Year
+    rule: sankranti
+    sankranti_index: 3
+    regions: [bengal]
+
+  - id: bihu_rongali
+    name: Rongali Bihu
+    description: Sun enters Aries — Assamese New Year
+    rule: sankranti
+    sankranti_index: 3
+    regions: [assam]
+
+  - id: karka_sankranti
+    name: Karka Sankranti
+    description: Sun enters Cancer — Dakshinayana begins
+    rule: sankranti
+    sankranti_index: 6
+    regions: [all]
+
+  # ==========================================================================
+  # PAUSHA (Month 10) — Dec-Jan
+  # ==========================================================================
+
+  - id: sakat_chauth
+    name: Sakat Chauth
+    description: Ganesh worship on Krishna Chaturthi of Pausha
+    rule: tithi_at_sunrise
+    lunar_month: 10
+    tithi: 19            # Krishna Chaturthi
+    regions: [north_india]
+
+  # ==========================================================================
+  # MAGHA (Month 11) — Jan-Feb
+  # ==========================================================================
+
+  - id: vasant_panchami
+    name: Vasant Panchami
+    description: Worship of Goddess Saraswati, onset of spring
+    rule: tithi_at_sunrise
+    lunar_month: 11
+    tithi: 5             # Shukla Panchami
+    aliases: [Saraswati Puja, Basant Panchami]
+    regions: [all]
+
+  - id: ratha_saptami
+    name: Ratha Saptami
+    description: Sun God's chariot turns northward
+    rule: tithi_at_sunrise
+    lunar_month: 11
+    tithi: 7             # Shukla Saptami
+    regions: [all]
+
+  - id: bhishma_ashtami
+    name: Bhishma Ashtami
+    description: Bhishma Pitamah left his mortal body
+    rule: tithi_at_sunrise
+    lunar_month: 11
+    tithi: 8             # Shukla Ashtami
+    regions: [all]
+
+  - id: maha_shivaratri
+    name: Maha Shivaratri
+    description: Great night of Lord Shiva
+    rule: tithi_at_sunrise
+    lunar_month: 11
+    tithi: 29            # Krishna Chaturdashi
+    regions: [all]
+
+  # ==========================================================================
+  # PHALGUNA (Month 12) — Feb-Mar
+  # ==========================================================================
+
+  - id: holika_dahan
+    name: Holika Dahan
+    description: Burning of Holika on eve of Holi
+    rule: tithi_at_sunrise
+    lunar_month: 12
+    tithi: 14            # Shukla Chaturdashi (night of Purnima eve)
+    regions: [all]
+
+  - id: holi
+    name: Holi
+    description: Festival of Colors — Phalguna Purnima
+    rule: tithi_at_sunrise
+    lunar_month: 12
+    tithi: 15            # Shukla Purnima
+    aliases: [Dhulandi, Rangwali Holi, Dol Jatra]
+    regions: [all]
+
+  # ==========================================================================
+  # CHAITRA (Month 1) — Mar-Apr
+  # ==========================================================================
+
+  - id: ugadi
+    name: Ugadi
+    description: Lunar New Year (Andhra, Telangana, Karnataka)
+    rule: tithi_at_sunrise
+    lunar_month: 1
+    tithi: 1             # Shukla Pratipada
+    aliases: [Yugadi]
+    regions: [south_india]
+
+  - id: gudi_padwa
+    name: Gudi Padwa
+    description: Lunar New Year (Maharashtra)
+    rule: tithi_at_sunrise
+    lunar_month: 1
+    tithi: 1             # Shukla Pratipada
+    regions: [maharashtra]
+
+  - id: cheti_chand
+    name: Cheti Chand
+    description: Sindhi New Year — birth of Jhulelal
+    rule: tithi_at_sunrise
+    lunar_month: 1
+    tithi: 1             # Shukla Pratipada
+    regions: [all]
+
+  - id: gauri_teej
+    name: Gauri Teej
+    description: Worship of Goddess Gauri
+    rule: tithi_at_sunrise
+    lunar_month: 1
+    tithi: 3             # Shukla Tritiya
+    aliases: [Gangaur]
+    regions: [rajasthan, north_india]
+
+  - id: ram_navami
+    name: Ram Navami
+    description: Birth of Lord Rama
+    rule: tithi_at_sunrise
+    lunar_month: 1
+    tithi: 9             # Shukla Navami
+    regions: [all]
+
+  - id: mahavir_jayanti
+    name: Mahavir Jayanti
+    description: Birth of Lord Mahavira (Jain tradition)
+    rule: tithi_at_sunrise
+    lunar_month: 1
+    tithi: 13            # Shukla Trayodashi
+    regions: [all]
+
+  - id: hanuman_jayanti
+    name: Hanuman Jayanti
+    description: Birth of Lord Hanuman
+    rule: tithi_at_sunrise
+    lunar_month: 1
+    tithi: 15            # Shukla Purnima
+    regions: [all]
+
+  # ==========================================================================
+  # VAISHAKHA (Month 2) — Apr-May
+  # ==========================================================================
+
+  - id: akshaya_tritiya
+    name: Akshaya Tritiya
+    description: Eternally auspicious day — new beginnings
+    rule: tithi_at_sunrise
+    lunar_month: 2
+    tithi: 3             # Shukla Tritiya
+    aliases: [Akha Teej]
+    regions: [all]
+
+  - id: parashurama_jayanti
+    name: Parashurama Jayanti
+    description: Birth of Lord Parashurama (6th avatar of Vishnu)
+    rule: tithi_at_sunrise
+    lunar_month: 2
+    tithi: 3             # Shukla Tritiya
+    regions: [all]
+
+  - id: buddha_purnima
+    name: Buddha Purnima
+    description: Birth of Gautama Buddha
+    rule: tithi_at_sunrise
+    lunar_month: 2
+    tithi: 15            # Shukla Purnima
+    aliases: [Vesak, Buddha Jayanti]
+    regions: [all]
+
+  # ==========================================================================
+  # JYESHTHA (Month 3) — May-Jun
+  # ==========================================================================
+
+  - id: ganga_dussehra
+    name: Ganga Dussehra
+    description: Descent of Goddess Ganga to Earth
+    rule: tithi_at_sunrise
+    lunar_month: 3
+    tithi: 10            # Shukla Dashami
+    regions: [all]
+
+  - id: vat_savitri
+    name: Vat Savitri
+    description: Married women's vrat — Savitri saved Satyavan
+    rule: tithi_at_sunrise
+    lunar_month: 3
+    tithi: 30            # Amavasya
+    aliases: [Vat Purnima]
+    regions: [maharashtra, gujarat, north_india]
+
+  # ==========================================================================
+  # ASHADHA (Month 4) — Jun-Jul
+  # ==========================================================================
+
+  - id: jagannath_rath_yatra
+    name: Jagannath Rath Yatra
+    description: Chariot festival of Lord Jagannath in Puri
+    rule: tithi_at_sunrise
+    lunar_month: 4
+    tithi: 2             # Shukla Dvitiya
+    regions: [odisha, all]
+
+  - id: guru_purnima
+    name: Guru Purnima
+    description: Honoring the Guru — Vyasa Purnima
+    rule: tithi_at_sunrise
+    lunar_month: 4
+    tithi: 15            # Shukla Purnima
+    aliases: [Vyasa Purnima]
+    regions: [all]
+
+  # ==========================================================================
+  # SHRAVANA (Month 5) — Jul-Aug
+  # ==========================================================================
+
+  - id: nag_panchami
+    name: Nag Panchami
+    description: Worship of serpent deities
+    rule: tithi_at_sunrise
+    lunar_month: 5
+    tithi: 5             # Shukla Panchami
+    regions: [all]
+
+  - id: hariyali_teej
+    name: Hariyali Teej
+    description: Celebration of the monsoon — Goddess Parvati
+    rule: tithi_at_sunrise
+    lunar_month: 5
+    tithi: 3             # Shukla Tritiya
+    aliases: [Sawan Teej]
+    regions: [north_india, rajasthan]
+
+  - id: raksha_bandhan
+    name: Raksha Bandhan
+    description: Bond of protection between siblings
+    rule: tithi_at_sunrise
+    lunar_month: 5
+    tithi: 15            # Shukla Purnima
+    aliases: [Rakhi]
+    regions: [all]
+
+  # ==========================================================================
+  # BHADRAPADA (Month 6) — Aug-Sep
+  # ==========================================================================
+
+  - id: kajari_teej
+    name: Kajari Teej
+    description: Third Teej — celebration of monsoon and marital bliss
+    rule: tithi_at_sunrise
+    lunar_month: 6
+    tithi: 3             # Shukla Tritiya
+    aliases: [Badi Teej]
+    regions: [north_india]
+
+  - id: hartalika_teej
+    name: Hartalika Teej
+    description: Goddess Parvati's penance for Lord Shiva
+    rule: tithi_at_sunrise
+    lunar_month: 6
+    tithi: 3             # Shukla Tritiya
+    regions: [north_india, maharashtra]
+
+  - id: ganesh_chaturthi
+    name: Ganesh Chaturthi
+    description: Birth of Lord Ganesha
+    rule: tithi_at_sunrise
+    lunar_month: 6
+    tithi: 4             # Shukla Chaturthi
+    aliases: [Vinayaka Chaturthi]
+    regions: [all]
+
+  - id: rishi_panchami
+    name: Rishi Panchami
+    description: Honoring the Saptarishis (seven sages)
+    rule: tithi_at_sunrise
+    lunar_month: 6
+    tithi: 5             # Shukla Panchami
+    regions: [all]
+
+  - id: radha_ashtami
+    name: Radha Ashtami
+    description: Birth of Radha
+    rule: tithi_at_sunrise
+    lunar_month: 6
+    tithi: 8             # Shukla Ashtami
+    regions: [north_india]
+
+  - id: anant_chaturdashi
+    name: Anant Chaturdashi
+    description: Ganesh Visarjan — immersion of Ganesh idols
+    rule: tithi_at_sunrise
+    lunar_month: 6
+    tithi: 14            # Shukla Chaturdashi
+    regions: [all]
+
+  - id: onam
+    name: Onam (Thiruvonam)
+    description: Harvest festival of Kerala — return of King Mahabali
+    rule: nakshatra_at_sunrise
+    nakshatra: 22         # Shravana (Thiruvonam)
+    sankranti_index: 7    # Simha Sankranti (~Aug 17) — anchors to Chingam month
+    regions: [kerala]
+
+  - id: janmashtami
+    name: Janmashtami
+    description: Birth of Lord Krishna
+    rule: tithi_at_sunrise
+    lunar_month: 6
+    tithi: 23            # Krishna Ashtami
+    aliases: [Krishna Janmashtami, Gokulashtami]
+    regions: [all]
+
+  # ==========================================================================
+  # ASHWIN (Month 7) — Sep-Oct
+  # ==========================================================================
+
+  - id: navaratri_start
+    name: Sharad Navaratri
+    description: Nine nights of Goddess Durga
+    rule: tithi_at_sunrise
+    lunar_month: 7
+    tithi: 1             # Shukla Pratipada
+    duration_days: 9
+    aliases: [Durga Puja begins]
+    regions: [all]
+
+  - id: durga_ashtami
+    name: Durga Ashtami
+    description: Maha Ashtami — weapon worship
+    rule: tithi_at_sunrise
+    lunar_month: 7
+    tithi: 8             # Shukla Ashtami
+    aliases: [Maha Ashtami, Ayudha Puja]
+    regions: [all]
+
+  - id: maha_navami
+    name: Maha Navami
+    description: Ninth day of Navaratri — Durga Balidan
+    rule: tithi_at_sunrise
+    lunar_month: 7
+    tithi: 9             # Shukla Navami
+    regions: [all]
+
+  - id: dussehra
+    name: Dussehra
+    description: Victory of Rama over Ravana
+    rule: tithi_at_sunrise
+    lunar_month: 7
+    tithi: 10            # Shukla Dashami
+    aliases: [Vijayadashami]
+    regions: [all]
+
+  - id: sharad_purnima
+    name: Sharad Purnima
+    description: Kojagiri Purnima — full moon of Ashwin
+    rule: tithi_at_sunrise
+    lunar_month: 7
+    tithi: 15            # Shukla Purnima
+    aliases: [Kojagiri Purnima, Kumara Purnima]
+    regions: [all]
+
+  # ==========================================================================
+  # KARTIK (Month 8) — Oct-Nov
+  # ==========================================================================
+
+  - id: karva_chauth
+    name: Karva Chauth
+    description: Married women's fasting for husband's long life
+    rule: tithi_at_sunrise
+    lunar_month: 8
+    tithi: 19            # Krishna Chaturthi
+    regions: [north_india, punjab]
+
+  - id: ahoi_ashtami
+    name: Ahoi Ashtami
+    description: Mothers' fasting for children's well-being
+    rule: tithi_at_sunrise
+    lunar_month: 8
+    tithi: 23            # Krishna Ashtami
+    regions: [north_india]
+
+  - id: dhanteras
+    name: Dhanteras
+    description: Worship of Dhanvantari — buying gold and utensils
+    rule: tithi_at_sunrise
+    lunar_month: 8
+    tithi: 28            # Krishna Trayodashi
+    aliases: [Dhantrayodashi, Dhanvantari Jayanti]
+    regions: [all]
+
+  - id: narak_chaturdashi
+    name: Narak Chaturdashi
+    description: Krishna killed demon Narakasura — Choti Diwali
+    rule: tithi_at_sunrise
+    lunar_month: 8
+    tithi: 29            # Krishna Chaturdashi
+    aliases: [Choti Diwali, Roop Chaturdashi]
+    regions: [all]
+
+  - id: diwali
+    name: Diwali
+    description: Festival of Lights — Lakshmi Puja
+    rule: tithi_at_sunrise
+    lunar_month: 8
+    tithi: 30            # Amavasya
+    aliases: [Deepavali]
+    regions: [all]
+
+  - id: govardhan_puja
+    name: Govardhan Puja
+    description: Krishna lifted Govardhan Hill — Annakut
+    rule: tithi_at_sunrise
+    lunar_month: 8
+    tithi: 1             # Shukla Pratipada (day after Diwali, next month cycle)
+    aliases: [Annakut, Bali Pratipada, Padwa]
+    regions: [all]
+    # NOTE: This is Kartik Shukla Pratipada. Since Diwali is Kartik Amavasya,
+    # this naturally falls the day after. The tithi search near the Vrischika
+    # Sankranti will find the correct date.
+
+  - id: bhai_dooj
+    name: Bhai Dooj
+    description: Brother-sister bond, Yama Dvitiya
+    rule: tithi_at_sunrise
+    lunar_month: 8
+    tithi: 2             # Shukla Dvitiya
+    aliases: [Bhai Tika, Bhai Bij, Yama Dvitiya]
+    regions: [all]
+
+  - id: chhath_puja
+    name: Chhath Puja
+    description: Sun worship at dawn and dusk — 4-day festival
+    rule: tithi_at_sunrise
+    lunar_month: 8
+    tithi: 6             # Shukla Shashthi (main day)
+    regions: [north_india]
+    # NOTE: Chhath spans 4 days (Chaturthi to Saptami).
+    # This marks the main day (Shashthi).
+
+  - id: tulsi_vivah
+    name: Tulsi Vivah
+    description: Ceremonial marriage of Tulsi plant and Lord Vishnu
+    rule: tithi_at_sunrise
+    lunar_month: 8
+    tithi: 11            # Shukla Ekadashi (Prabodhini)
+    aliases: [Tulsi Marriage]
+    regions: [all]
+
+  - id: dev_deepawali
+    name: Dev Deepawali
+    description: Diwali of the Gods — Kartik Purnima
+    rule: tithi_at_sunrise
+    lunar_month: 8
+    tithi: 15            # Shukla Purnima
+    aliases: [Kartik Purnima, Tripurari Purnima]
+    regions: [all]
+
+  # ==========================================================================
+  # MARGASHIRSHA (Month 9) — Nov-Dec
+  # ==========================================================================
+
+  - id: gita_jayanti
+    name: Gita Jayanti
+    description: Day Bhagavad Gita was spoken — Mokshada Ekadashi
+    rule: tithi_at_sunrise
+    lunar_month: 9
+    tithi: 11            # Shukla Ekadashi
+    regions: [all]
+
+  - id: dattatreya_jayanti
+    name: Dattatreya Jayanti
+    description: Birth of Lord Dattatreya
+    rule: tithi_at_sunrise
+    lunar_month: 9
+    tithi: 15            # Shukla Purnima
+    regions: [maharashtra, south_india]
+
+  # ==========================================================================
+  # PAUSHA (Month 10) — Dec-Jan (additional)
+  # ==========================================================================
+
+  - id: putrada_ekadashi
+    name: Putrada Ekadashi
+    description: Ekadashi granting the boon of progeny
+    rule: tithi_at_sunrise
+    lunar_month: 10
+    tithi: 11            # Shukla Ekadashi
+    regions: [all]
+
+  # ==========================================================================
+  # CHAITRA NAVARATRI (Month 1) — additional
+  # ==========================================================================
+
+  - id: chaitra_navaratri
+    name: Chaitra Navaratri
+    description: Nine nights of Goddess Durga in Chaitra
+    rule: tithi_at_sunrise
+    lunar_month: 1
+    tithi: 1             # Shukla Pratipada
+    duration_days: 9
+    aliases: [Vasant Navaratri]
+    regions: [north_india]
+
+# ==========================================================================
+# Ekadashi names: 2 per lunar month (Shukla + Krishna), 24 total per year
+# ==========================================================================
+ekadashis:
+  - { month: 1,  shukla: Kamada,           krishna: Varuthini }
+  - { month: 2,  shukla: Mohini,           krishna: Apara }
+  - { month: 3,  shukla: Nirjala,          krishna: Yogini }
+  - { month: 4,  shukla: Devshayani,       krishna: Kamika }
+  - { month: 5,  shukla: Shravana Putrada, krishna: Aja }
+  - { month: 6,  shukla: Parsva,           krishna: Indira }
+  - { month: 7,  shukla: Papankusha,       krishna: Rama }
+  - { month: 8,  shukla: Prabodhini,       krishna: Utpanna }
+  - { month: 9,  shukla: Mokshada,         krishna: Saphala }
+  - { month: 10, shukla: Pausha Putrada,   krishna: Shattila }
+  - { month: 11, shukla: Jaya,             krishna: Vijaya }
+  - { month: 12, shukla: Amalaki,          krishna: Papamochani }

@@ -1,0 +1,52 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+env:
+  CARGO_TERM_COLOR: always
+jobs:
+  test:
+    name: Test (Python )
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 
+      - uses: astral-sh/setup-uv@v5
+      - name: Create venv and install
+        run: |
+          uv venv
+          uv pip install -e ".[dev]"
+      - name: Run Python tests
+        run: uv run pytest tests/ -v
+      - name: Run Rust unit tests
+        run: cargo test --manifest-path crates/lilavati-core/Cargo.toml -- --test-threads=1
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v5
+      - name: Cargo clippy
+        run: cargo clippy --manifest-path crates/lilavati-core/Cargo.toml -- -D warnings
+      - name: Cargo fmt check
+        run: cargo fmt --manifest-path crates/lilavati-core/Cargo.toml -- --check
+      - name: Ruff
+        run: |
+          uv venv
+          uv pip install ruff
+          uv run ruff check python/ tests/
+          uv run ruff format --check python/ tests/

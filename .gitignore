@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+*.egg-info/
+*.egg
+dist/
+build/
+wheels/
+*.whl
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Rust
+target/
+Cargo.lock
+
+# Maturin
+*.d
+
+# Swiss Ephemeris data files (large, downloaded at runtime)
+*.se1
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+*.proptest-regressions
+
+# Benchmarks
+criterion/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment / secrets
+.env
+.env.*
+
+# Database (API)
+*.sqlite
+*.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# mypy / pyright
+.mypy_cache/
+.pyright/
+pyrightconfig.json

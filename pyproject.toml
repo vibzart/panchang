@@ -1,0 +1,72 @@
+[build-system]
+requires = ["maturin>=1.5"]
+build-backend = "maturin"
+
+[project]
+name = "panchang"
+version = "0.1.0"
+description = "Bhāratīya calendar infrastructure — Panchang, festivals, muhurat, and regional calendars"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.11"
+authors = [
+    {name = "vibz.art"},
+]
+keywords = ["panchang", "hindu-calendar", "vedic", "astrology", "nakshatra", "tithi", "muhurat", "bharatiya-calendar"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.4",
+    "maturin>=1.5",
+]
+api = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic-settings>=2.0",
+    "httpx>=0.27",
+    "slowapi>=0.1.9",
+    "stripe>=9.0",
+]
+
+[project.urls]
+Homepage = "https://vibz.art"
+Documentation = "https://github.com/vibzart/lilavati-oss"
+Repository = "https://github.com/vibzart/lilavati-oss"
+Issues = "https://github.com/vibzart/lilavati-oss/issues"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+manifest-path = "crates/lilavati-core/Cargo.toml"
+module-name = "panchang._core"
+python-source = "python"
+include = ["data/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+src = ["python", "tests", "tests_pro", "tests_api", "api"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]

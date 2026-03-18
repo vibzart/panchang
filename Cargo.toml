@@ -1,0 +1,3 @@
+[workspace]
+members = ["crates/lilavati-core"]
+resolver = "2"

@@ -1,0 +1,420 @@
+# Lilavati Regional Calendar Definitions
+#
+# Each regional calendar defines:
+#   - type: "lunar" (month boundaries at Amavasya/Purnima) or "solar" (months at Sankranti)
+#   - system: "amant" or "purnimant" (only for lunar type)
+#   - months: regional names mapped to standard month number or rashi index
+#   - era: how to compute the regional year from Gregorian year
+#   - new_year: which event marks the start of the regional year
+#
+# Month mapping:
+#   For lunar calendars: number = standard lunar month (1=Chaitra ... 12=Phalguna)
+#   For solar calendars: rashi_index = zodiac sign the Sun enters (0=Mesha ... 11=Meena)
+#
+# Era types:
+#   - offset: regional_year = gregorian_year + offset (applied after new_year check)
+#   - sixty_year_cycle: 60-year Jovian cycle with named years
+
+calendars:
+
+  # ============================================================================
+  # NORTH INDIA — Purnimant lunar calendars
+  # ============================================================================
+
+  - id: hindi
+    name: Hindi Panchang
+    language: Hindi
+    type: lunar
+    system: purnimant
+    new_year:
+      type: tithi
+      lunar_month: 1    # Chaitra
+      tithi: 1           # Shukla Pratipada
+    era:
+      name: Vikram Samvat
+      type: offset
+      # VS year starts at Chaitra Shukla Pratipada
+      # For dates before Chaitra S1: VS = CE + 57
+      # For dates on/after Chaitra S1: VS = CE + 57
+      # (the +57 applies to the full Chaitra-to-Phalguna year)
+      offset: 57
+    months:
+      - { number: 1,  name: Chaitra }
+      - { number: 2,  name: Vaishakh }
+      - { number: 3,  name: Jyeshth }
+      - { number: 4,  name: Ashadh }
+      - { number: 5,  name: Shravan }
+      - { number: 6,  name: Bhadrapad }
+      - { number: 7,  name: Ashwin }
+      - { number: 8,  name: Kartik }
+      - { number: 9,  name: Margashirsh }
+      - { number: 10, name: Paush }
+      - { number: 11, name: Magh }
+      - { number: 12, name: Phalgun }
+
+  # ============================================================================
+  # GUJARAT — Amant lunar, Kartik new year
+  # ============================================================================
+
+  - id: gujarati
+    name: Gujarati Panchang
+    language: Gujarati
+    type: lunar
+    system: amant
+    new_year:
+      type: tithi
+      lunar_month: 8    # Kartik
+      tithi: 1           # Shukla Pratipada (day after Diwali)
+    era:
+      name: Vikram Samvat
+      type: offset
+      offset: 57
+    months:
+      - { number: 8,  name: Kartik }
+      - { number: 9,  name: Magshar }
+      - { number: 10, name: Posh }
+      - { number: 11, name: Maha }
+      - { number: 12, name: Fagan }
+      - { number: 1,  name: Chaitra }
+      - { number: 2,  name: Vaishakh }
+      - { number: 3,  name: Jeth }
+      - { number: 4,  name: Ashadh }
+      - { number: 5,  name: Shravan }
+      - { number: 6,  name: Bhadarvo }
+      - { number: 7,  name: Aso }
+
+  # ============================================================================
+  # MAHARASHTRA — Amant lunar, Chaitra new year
+  # ============================================================================
+
+  - id: marathi
+    name: Marathi Panchang
+    language: Marathi
+    type: lunar
+    system: amant
+    new_year:
+      type: tithi
+      lunar_month: 1    # Chaitra
+      tithi: 1           # Shukla Pratipada (Gudi Padwa)
+    era:
+      name: Shaka Samvat
+      type: offset
+      offset: -78
+    months:
+      - { number: 1,  name: Chaitra }
+      - { number: 2,  name: Vaishakh }
+      - { number: 3,  name: Jyeshtha }
+      - { number: 4,  name: Ashadha }
+      - { number: 5,  name: Shravana }
+      - { number: 6,  name: Bhadrapada }
+      - { number: 7,  name: Ashwin }
+      - { number: 8,  name: Kartik }
+      - { number: 9,  name: Margashirsha }
+      - { number: 10, name: Pausha }
+      - { number: 11, name: Magha }
+      - { number: 12, name: Phalguna }
+
+  # ============================================================================
+  # KARNATAKA — Amant lunar, Chaitra new year
+  # ============================================================================
+
+  - id: kannada
+    name: Kannada Panchanga
+    language: Kannada
+    type: lunar
+    system: amant
+    new_year:
+      type: tithi
+      lunar_month: 1    # Chaitra
+      tithi: 1           # Shukla Pratipada (Ugadi)
+    era:
+      name: Shaka Samvat
+      type: offset
+      offset: -78
+    months:
+      - { number: 1,  name: Chaitra }
+      - { number: 2,  name: Vaishakha }
+      - { number: 3,  name: Jyeshtha }
+      - { number: 4,  name: Ashadha }
+      - { number: 5,  name: Shravana }
+      - { number: 6,  name: Bhadrapada }
+      - { number: 7,  name: Ashvija }
+      - { number: 8,  name: Kartika }
+      - { number: 9,  name: Margashira }
+      - { number: 10, name: Pushya }
+      - { number: 11, name: Magha }
+      - { number: 12, name: Phalguna }
+
+  # ============================================================================
+  # ANDHRA PRADESH / TELANGANA — Amant lunar, Chaitra new year
+  # ============================================================================
+
+  - id: telugu
+    name: Telugu Panchangam
+    language: Telugu
+    type: lunar
+    system: amant
+    new_year:
+      type: tithi
+      lunar_month: 1    # Chaitra
+      tithi: 1           # Shukla Pratipada (Ugadi)
+    era:
+      name: Shaka Samvat
+      type: offset
+      offset: -78
+    months:
+      - { number: 1,  name: Chaitra }
+      - { number: 2,  name: Vaishakha }
+      - { number: 3,  name: Jyeshtha }
+      - { number: 4,  name: Ashadha }
+      - { number: 5,  name: Shravana }
+      - { number: 6,  name: Bhadrapada }
+      - { number: 7,  name: Ashvayuja }
+      - { number: 8,  name: Kartika }
+      - { number: 9,  name: Margashira }
+      - { number: 10, name: Pushya }
+      - { number: 11, name: Magha }
+      - { number: 12, name: Phalguna }
+
+  # ============================================================================
+  # TAMIL NADU — Solar calendar, Mesha Sankranti new year
+  # ============================================================================
+
+  - id: tamil
+    name: Tamil Calendar
+    language: Tamil
+    type: solar
+    new_year:
+      type: sankranti
+      sankranti_index: 3   # Mesha Sankranti (Chithirai 1 = Puthandu)
+    era:
+      name: Thiruvalluvar Aandu
+      type: offset
+      offset: 31           # Thiruvalluvar year = CE + 31
+    months:
+      - { rashi_index: 0,  name: Chithirai }     # Mesha     (Apr-May)
+      - { rashi_index: 1,  name: Vaikasi }        # Vrishabha (May-Jun)
+      - { rashi_index: 2,  name: Aani }           # Mithuna   (Jun-Jul)
+      - { rashi_index: 3,  name: Aadi }           # Karka     (Jul-Aug)
+      - { rashi_index: 4,  name: Avani }          # Simha     (Aug-Sep)
+      - { rashi_index: 5,  name: Purattasi }      # Kanya     (Sep-Oct)
+      - { rashi_index: 6,  name: Aippasi }        # Tula      (Oct-Nov)
+      - { rashi_index: 7,  name: Karthigai }      # Vrischika (Nov-Dec)
+      - { rashi_index: 8,  name: Margazhi }       # Dhanu     (Dec-Jan)
+      - { rashi_index: 9,  name: Thai }           # Makara    (Jan-Feb)
+      - { rashi_index: 10, name: Maasi }          # Kumbha    (Feb-Mar)
+      - { rashi_index: 11, name: Panguni }        # Meena     (Mar-Apr)
+
+  # ============================================================================
+  # KERALA — Solar calendar, Simha Sankranti new year
+  # ============================================================================
+
+  - id: malayalam
+    name: Malayalam Calendar (Kollavarsham)
+    language: Malayalam
+    type: solar
+    new_year:
+      type: sankranti
+      sankranti_index: 7   # Simha Sankranti (Chingam 1)
+    era:
+      name: Kollavarsham
+      type: offset
+      offset: -825         # Kollavarsham = CE - 825
+    months:
+      - { rashi_index: 4,  name: Chingam }        # Simha     (Aug-Sep)
+      - { rashi_index: 5,  name: Kanni }          # Kanya     (Sep-Oct)
+      - { rashi_index: 6,  name: Thulam }         # Tula      (Oct-Nov)
+      - { rashi_index: 7,  name: Vrischikam }     # Vrischika (Nov-Dec)
+      - { rashi_index: 8,  name: Dhanu }          # Dhanu     (Dec-Jan)
+      - { rashi_index: 9,  name: Makaram }        # Makara    (Jan-Feb)
+      - { rashi_index: 10, name: Kumbham }        # Kumbha    (Feb-Mar)
+      - { rashi_index: 11, name: Meenam }         # Meena     (Mar-Apr)
+      - { rashi_index: 0,  name: Medam }          # Mesha     (Apr-May)
+      - { rashi_index: 1,  name: Edavam }         # Vrishabha (May-Jun)
+      - { rashi_index: 2,  name: Mithunam }       # Mithuna   (Jun-Jul)
+      - { rashi_index: 3,  name: Karkidakam }     # Karka     (Jul-Aug)
+
+  # ============================================================================
+  # BENGAL — Solar calendar, Mesha Sankranti new year
+  # ============================================================================
+
+  - id: bengali
+    name: Bengali Calendar (Bangabda)
+    language: Bengali
+    type: solar
+    new_year:
+      type: sankranti
+      sankranti_index: 3   # Mesha Sankranti (Pohela Boishakh)
+    era:
+      name: Bangabda
+      type: offset
+      offset: -593         # Bangabda = CE - 593
+    months:
+      - { rashi_index: 0,  name: Boishakh }       # Mesha     (Apr-May)
+      - { rashi_index: 1,  name: Joishtho }       # Vrishabha (May-Jun)
+      - { rashi_index: 2,  name: Asharh }         # Mithuna   (Jun-Jul)
+      - { rashi_index: 3,  name: Shrabon }        # Karka     (Jul-Aug)
+      - { rashi_index: 4,  name: Bhadro }         # Simha     (Aug-Sep)
+      - { rashi_index: 5,  name: Ashwin }         # Kanya     (Sep-Oct)
+      - { rashi_index: 6,  name: Kartik }         # Tula      (Oct-Nov)
+      - { rashi_index: 7,  name: Ogrohayon }      # Vrischika (Nov-Dec)
+      - { rashi_index: 8,  name: Poush }          # Dhanu     (Dec-Jan)
+      - { rashi_index: 9,  name: Magh }           # Makara    (Jan-Feb)
+      - { rashi_index: 10, name: Falgun }         # Kumbha    (Feb-Mar)
+      - { rashi_index: 11, name: Choitro }        # Meena     (Mar-Apr)
+
+  # ============================================================================
+  # ASSAM — Solar calendar, Mesha Sankranti new year
+  # ============================================================================
+
+  - id: assamese
+    name: Assamese Calendar (Saka)
+    language: Assamese
+    type: solar
+    new_year:
+      type: sankranti
+      sankranti_index: 3   # Mesha Sankranti (Rongali Bihu / Bohag Bihu)
+    era:
+      name: Saka
+      type: offset
+      offset: -78
+    months:
+      - { rashi_index: 0,  name: Bohag }          # Mesha     (Apr-May)
+      - { rashi_index: 1,  name: Jeth }           # Vrishabha (May-Jun)
+      - { rashi_index: 2,  name: Ahar }           # Mithuna   (Jun-Jul)
+      - { rashi_index: 3,  name: Saon }           # Karka     (Jul-Aug)
+      - { rashi_index: 4,  name: Bhado }          # Simha     (Aug-Sep)
+      - { rashi_index: 5,  name: Ahin }           # Kanya     (Sep-Oct)
+      - { rashi_index: 6,  name: Kati }           # Tula      (Oct-Nov)
+      - { rashi_index: 7,  name: Aghon }          # Vrischika (Nov-Dec)
+      - { rashi_index: 8,  name: Puh }            # Dhanu     (Dec-Jan)
+      - { rashi_index: 9,  name: Magh }           # Makara    (Jan-Feb)
+      - { rashi_index: 10, name: Phagun }         # Kumbha    (Feb-Mar)
+      - { rashi_index: 11, name: Chot }           # Meena     (Mar-Apr)
+
+  # ============================================================================
+  # ODISHA — Solar calendar, Mesha Sankranti new year
+  # ============================================================================
+
+  - id: odia
+    name: Odia Calendar
+    language: Odia
+    type: solar
+    new_year:
+      type: sankranti
+      sankranti_index: 3   # Mesha Sankranti (Pana Sankranti)
+    era:
+      name: Shaka Samvat
+      type: offset
+      offset: -78
+    months:
+      - { rashi_index: 0,  name: Baisakha }       # Mesha     (Apr-May)
+      - { rashi_index: 1,  name: Jyeshtha }       # Vrishabha (May-Jun)
+      - { rashi_index: 2,  name: Ashadha }        # Mithuna   (Jun-Jul)
+      - { rashi_index: 3,  name: Shravana }       # Karka     (Jul-Aug)
+      - { rashi_index: 4,  name: Bhadrava }       # Simha     (Aug-Sep)
+      - { rashi_index: 5,  name: Ashvina }        # Kanya     (Sep-Oct)
+      - { rashi_index: 6,  name: Kartika }        # Tula      (Oct-Nov)
+      - { rashi_index: 7,  name: Margashira }     # Vrischika (Nov-Dec)
+      - { rashi_index: 8,  name: Pausha }         # Dhanu     (Dec-Jan)
+      - { rashi_index: 9,  name: Magha }          # Makara    (Jan-Feb)
+      - { rashi_index: 10, name: Phalguna }       # Kumbha    (Feb-Mar)
+      - { rashi_index: 11, name: Chaitra }        # Meena     (Mar-Apr)
+
+  # ============================================================================
+  # NATIONAL (Bhāratīya National Calendar / Saka Calendar)
+  # ============================================================================
+
+  - id: national
+    name: Bhāratīya National Calendar
+    language: Sanskrit
+    type: solar
+    new_year:
+      type: sankranti
+      sankranti_index: 3   # Mesha Sankranti (Chaitra 1)
+    era:
+      name: Shaka Samvat
+      type: offset
+      offset: -78
+    months:
+      - { rashi_index: 0,  name: Chaitra }        # Mesha     (Mar-Apr)
+      - { rashi_index: 1,  name: Vaishakha }      # Vrishabha (Apr-May)
+      - { rashi_index: 2,  name: Jyeshtha }       # Mithuna   (May-Jun)
+      - { rashi_index: 3,  name: Ashadha }        # Karka     (Jun-Jul)
+      - { rashi_index: 4,  name: Shravana }       # Simha     (Jul-Aug)
+      - { rashi_index: 5,  name: Bhadra }         # Kanya     (Aug-Sep)
+      - { rashi_index: 6,  name: Ashwin }         # Tula      (Sep-Oct)
+      - { rashi_index: 7,  name: Kartika }        # Vrischika (Oct-Nov)
+      - { rashi_index: 8,  name: Agrahayana }     # Dhanu     (Nov-Dec)
+      - { rashi_index: 9,  name: Pausha }         # Makara    (Dec-Jan)
+      - { rashi_index: 10, name: Magha }          # Kumbha    (Jan-Feb)
+      - { rashi_index: 11, name: Phalguna }       # Meena     (Feb-Mar)
+
+# ============================================================================
+# 60-Year Jovian Cycle (Prabhava to Akshaya)
+# Used by Tamil, Telugu, Kannada calendars for naming years
+# ============================================================================
+
+sixty_year_cycle:
+  epoch_year: 1987    # 1987 CE = Prabhava (year 1 of cycle)
+  names:
+    - Prabhava
+    - Vibhava
+    - Shukla
+    - Pramoda
+    - Prajapati
+    - Angirasa
+    - Shrimukha
+    - Bhava
+    - Yuva
+    - Dhata
+    - Ishvara
+    - Bahudhanya
+    - Pramathi
+    - Vikrama
+    - Vrisha
+    - Chitrabhanu
+    - Svabhanu
+    - Tarana
+    - Parthiva
+    - Vyaya
+    - Sarvajit
+    - Sarvadhari
+    - Virodhi
+    - Vikrita
+    - Khara
+    - Nandana
+    - Vijaya
+    - Jaya
+    - Manmatha
+    - Durmukhi
+    - Hevilambi
+    - Vilambi
+    - Vikari
+    - Sharvari
+    - Plava
+    - Shubhakrit
+    - Shobhakrit
+    - Krodhi
+    - Vishvavasu
+    - Parabhava
+    - Plavanga
+    - Kilaka
+    - Saumya
+    - Sadharana
+    - Virodhikrit
+    - Paridhavi
+    - Pramadi
+    - Ananda
+    - Rakshasa
+    - Nala
+    - Pingala
+    - Kalayukti
+    - Siddharthi
+    - Raudra
+    - Durmathi
+    - Dundubhi
+    - Rudhirodgari
+    - Raktakshi
+    - Krodhana
+    - Akshaya
