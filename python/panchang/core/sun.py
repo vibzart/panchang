@@ -1,4 +1,4 @@
-"""Sunrise, sunset, and solar calculations for Lilavati.
+"""Sunrise, sunset, and solar calculations for Panchang.
 
 Uses Rust _core extension which wraps Swiss Ephemeris swe_rise_trans()
 for precise geometric sunrise/sunset with Hindu rising method.

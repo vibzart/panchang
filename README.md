@@ -3,11 +3,11 @@
 [![PyPI](https://img.shields.io/pypi/v/panchang)](https://pypi.org/project/panchang/)
 [![Python](https://img.shields.io/pypi/pyversions/panchang)](https://pypi.org/project/panchang/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![CI](https://github.com/vibzart/lilavati-oss/actions/workflows/ci.yml/badge.svg)](https://github.com/vibzart/lilavati-oss/actions/workflows/ci.yml)
+[![CI](https://github.com/vibzart/panchang/actions/workflows/ci.yml/badge.svg)](https://github.com/vibzart/panchang/actions/workflows/ci.yml)
 
 **Bhāratīya calendar infrastructure for developers** — Panchang, festivals, muhurat, regional calendars, and batch computation.
 
-Built on the Lilavati computation engine, named after Bhāskarāchārya's 12th-century mathematical treatise. Not an astrology API. It answers: *"What is happening in the Bhāratīya calendar right now, at this location?"*
+Built on a Rust computation engine with Swiss Ephemeris precision. Not an astrology API. It answers: *"What is happening in the Bhāratīya calendar right now, at this location?"*
 
 ```python
 from datetime import date
@@ -134,11 +134,11 @@ maturin develop --uv
 
 # Run tests
 uv run pytest tests/ -v
-cargo test --manifest-path crates/lilavati-core/Cargo.toml -- --test-threads=1
+cargo test --manifest-path crates/panchang-core/Cargo.toml -- --test-threads=1
 
 # Lint
 uv run ruff check python/ tests/
-cargo clippy --manifest-path crates/lilavati-core/Cargo.toml -- -D warnings
+cargo clippy --manifest-path crates/panchang-core/Cargo.toml -- -D warnings
 ```
 
 ## Tech Stack
@@ -160,8 +160,8 @@ Contributions welcome! Please open an issue first to discuss what you'd like to 
 # Run the full check suite before submitting
 uv run ruff check python/ tests/
 uv run pytest tests/ -v
-cargo test --manifest-path crates/lilavati-core/Cargo.toml -- --test-threads=1
-cargo clippy --manifest-path crates/lilavati-core/Cargo.toml -- -D warnings
+cargo test --manifest-path crates/panchang-core/Cargo.toml -- --test-threads=1
+cargo clippy --manifest-path crates/panchang-core/Cargo.toml -- -D warnings
 ```
 
 ## License

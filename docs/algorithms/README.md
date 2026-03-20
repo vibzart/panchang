@@ -1,6 +1,6 @@
 # Algorithm Documentation
 
-Technical documentation for the astronomical and calendrical algorithms used in Lilavati.
+Technical documentation for the astronomical and calendrical algorithms used in Panchang.
 
 ## Contents
 
@@ -15,7 +15,7 @@ Technical documentation for the astronomical and calendrical algorithms used in 
 
 ## Architecture
 
-All computation is performed in Rust (`crates/lilavati-core/src/`). Python provides thin typed wrappers via PyO3.
+All computation is performed in Rust (`crates/panchang-core/src/`). Python provides thin typed wrappers via PyO3.
 
 The ephemeris engine is the Swiss Ephemeris (Moshier analytical model), vendored as C and accessed via FFI. No external ephemeris data files are needed.
 

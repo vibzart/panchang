@@ -1,4 +1,4 @@
-"""Panchang computation engine for Lilavati.
+"""Panchang computation engine for Panchang.
 
 Computes the 5 elements of the Hindu Panchang:
   1. Vara (weekday)

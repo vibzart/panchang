@@ -1,4 +1,4 @@
-# Lilavati — Feature Roadmap
+# Panchang — Feature Roadmap
 
 ## The Complete Feature Universe + Open Source vs Paid Strategy
 
@@ -16,7 +16,7 @@ The open-core model follows one rule:
 
 ## Feature Map
 
-### Zone 1: Open Source Library (`pip install lilavati`)
+### Zone 1: Open Source Library (`pip install panchang`)
 
 These features drive adoption. They must be free because:
 - They're derivable from public algorithms (no point gatekeeping math)
@@ -39,7 +39,7 @@ These features drive adoption. They must be free because:
 | Shraddha Tithi | Death anniversary lunar date calculator | Phase 2 | Medium |
 | Adhik Maas Detection | Leap lunar month detection | Phase 2 | Medium |
 
-**Why these are free**: A developer needs to run `pip install lilavati` and verify "does this give me the right Diwali date?" before they'll trust your API in production. If the library is accurate, they become API customers.
+**Why these are free**: A developer needs to run `pip install panchang` and verify "does this give me the right Diwali date?" before they'll trust your API in production. If the library is accurate, they become API customers.
 
 ### Zone 2: Free API Tier (1,000 requests/month)
 
@@ -141,13 +141,13 @@ Distribution         ──────────────────►  
 
 ## Novel AI/LLM Features
 
-Modern LLMs and AI advancements unlock capabilities that were impossible before. These are Lilavati's potential differentiators.
+Modern LLMs and AI advancements unlock capabilities that were impossible before. These are Panchang's potential differentiators.
 
 ### 1. Computation-Grounded LLM Interpretation (The Killer Feature)
 
 The #1 problem with AI + astrology today: **LLMs hallucinate planetary positions**. They're token predictors, not calculators. Every "AI astrology" chatbot that tries to compute charts gets positions wrong.
 
-Lilavati's architecture is the exact solution:
+Panchang's architecture is the exact solution:
 - **Swiss Ephemeris computes** (accurate to arc-seconds)
 - **LLM interprets** (natural language explanation of what the positions mean)
 
@@ -185,7 +185,7 @@ Shukla Paksha Saptami. Sun-Moon angular distance is 84°. Rahu Kalam
 falls during 15:00-16:30 IST. The Yoga is Siddha (auspicious)."
 ```
 
-This structured text becomes the grounding context for any LLM — whether Claude, GPT, Gemini, or open-source models. Lilavati becomes the **computation layer** that every AI astrology product needs.
+This structured text becomes the grounding context for any LLM — whether Claude, GPT, Gemini, or open-source models. Panchang becomes the **computation layer** that every AI astrology product needs.
 
 ### 4. Agentic Multi-Step Reasoning
 
@@ -198,7 +198,7 @@ Modern LLM agent patterns enable complex queries that chain multiple computation
 - "Compare my birth chart with this date's transit chart"
   *(requires: two chart computations + aspect analysis)*
 
-Lilavati's computation engine becomes the **tool** that an LLM agent calls repeatedly. This is the LLM tool-use / function-calling pattern — having a reliable, fast computation API is essential for it to work.
+Panchang's computation engine becomes the **tool** that an LLM agent calls repeatedly. This is the LLM tool-use / function-calling pattern — having a reliable, fast computation API is essential for it to work.
 
 ### 5. The API-as-LLM-Tool Play
 
@@ -208,11 +208,11 @@ Lilavati's computation engine becomes the **tool** that an LLM agent calls repea
 {
   "name": "get_panchang",
   "description": "Get accurate Bhāratīya calendar data for a date and location",
-  "api": "https://api.lilavati.dev/v1/panchang"
+  "api": "https://api.panchang.dev/v1/panchang"
 }
 ```
 
-This positions Lilavati like Wolfram Alpha is for math — the computation oracle that LLMs defer to instead of guessing.
+This positions Panchang like Wolfram Alpha is for math — the computation oracle that LLMs defer to instead of guessing.
 
 ### 6. Multimodal Possibilities (Future)
 

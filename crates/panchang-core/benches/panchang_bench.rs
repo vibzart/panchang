@@ -1,16 +1,16 @@
-//! Criterion benchmarks for Lilavati core computations.
+//! Criterion benchmarks for Panchang core computations.
 //!
 //! Measures performance of all major computation paths:
 //! sunrise/sunset, planetary positions, full panchang, and muhurat windows.
 //!
-//! Run: cargo bench --manifest-path crates/lilavati-core/Cargo.toml
+//! Run: cargo bench --manifest-path crates/panchang-core/Cargo.toml
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use lilavati_core::ephemeris::{self, Planet};
-use lilavati_core::julian;
-use lilavati_core::muhurat;
-use lilavati_core::panchang;
-use lilavati_core::sun;
+use panchang_core::ephemeris::{self, Planet};
+use panchang_core::julian;
+use panchang_core::muhurat;
+use panchang_core::panchang;
+use panchang_core::sun;
 
 // --- Fixed parameters: Delhi, 2026-02-24 ---
 const DELHI_LAT: f64 = 28.6139;

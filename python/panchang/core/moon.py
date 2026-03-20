@@ -1,4 +1,4 @@
-"""Moon position and phase calculations for Lilavati."""
+"""Moon position and phase calculations for Panchang."""
 
 from __future__ import annotations
 

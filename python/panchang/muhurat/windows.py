@@ -1,4 +1,4 @@
-"""Muhurat time window calculations for Lilavati.
+"""Muhurat time window calculations for Panchang.
 
 Computes daily inauspicious/auspicious time windows based on sunrise and sunset:
   - Rahu Kalam: 1.5-hour inauspicious window (position varies by weekday)

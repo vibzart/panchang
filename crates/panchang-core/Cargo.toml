@@ -1,12 +1,12 @@
 [package]
-name = "lilavati-core"
+name = "panchang-core"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-description = "Rust computation engine for Lilavati Bhāratīya calendar library"
+description = "Rust computation engine for Panchang — Bhāratīya calendar library"
 
 [lib]
-name = "lilavati_core"
+name = "panchang_core"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]

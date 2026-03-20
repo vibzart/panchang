@@ -1,4 +1,4 @@
-"""Shared test fixtures for Lilavati tests."""
+"""Shared test fixtures for Panchang tests."""
 
 import pytest
 

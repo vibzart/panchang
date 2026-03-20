@@ -1,10 +1,10 @@
-# Lilavati — SOTA Computation Architecture
+# Panchang — SOTA Computation Architecture
 
 ## Core Principle
 
 **Rust computes. Python exposes.**
 
-The computation hot path lives in Rust, compiled to a native Python extension via PyO3/maturin. The Python package (`pip install lilavati`) is the public API — types, convenience functions, documentation — but every expensive calculation dispatches to Rust.
+The computation hot path lives in Rust, compiled to a native Python extension via PyO3/maturin. The Python package (`pip install panchang`) is the public API — types, convenience functions, documentation — but every expensive calculation dispatches to Rust.
 
 This is the same pattern used by Polars, Pydantic v2, Ruff, cryptography, and orjson — the SOTA pattern for high-performance Python libraries in 2026.
 
@@ -15,20 +15,20 @@ This is the same pattern used by Polars, Pydantic v2, Ruff, cryptography, and or
 ```
 ┌─────────────────────────────────────────────────────┐
 │  User Code (Python)                                 │
-│  from lilavati import panchang                      │
+│  from panchang import panchang                      │
 │  result = panchang.compute(date(2026, 2, 24), loc)  │
 └────────────────────┬────────────────────────────────┘
                      │
 ┌────────────────────▼────────────────────────────────┐
-│  lilavati (Python package)                          │
+│  panchang (Python package)                          │
 │  - Public API: panchang.compute(), choghadiya()     │
 │  - Pydantic models: PanchangData, SunData, etc.     │
 │  - Timezone handling, input validation               │
-│  - Calls into Rust via lilavati._core                │
+│  - Calls into Rust via panchang._core                │
 └────────────────────┬────────────────────────────────┘
                      │ PyO3 FFI boundary
 ┌────────────────────▼────────────────────────────────┐
-│  lilavati-core (Rust crate)                         │
+│  panchang-core (Rust crate)                         │
 │  - Swiss Ephemeris bindings (swisseph-rs or FFI)    │
 │  - Angle arithmetic, normalization, interpolation   │
 │  - Transition search (bisection + Newton-Raphson)   │
@@ -41,19 +41,19 @@ This is the same pattern used by Polars, Pydantic v2, Ruff, cryptography, and or
                      │
                      ▼  also compiles to
 ┌─────────────────────────────────────────────────────┐
-│  lilavati-wasm (WebAssembly)                        │
+│  panchang-wasm (WebAssembly)                        │
 │  - Same Rust core compiled via wasm-pack            │
 │  - First Vedic calendar library in the browser      │
-│  - npm install @lilavati/core                       │
+│  - npm install @panchang/core                       │
 └─────────────────────────────────────────────────────┘
 ```
 
 ## Project Structure
 
 ```
-/Workspace/lilavati/
+/Workspace/panchang/
 ├── crates/
-│   └── lilavati-core/          # Rust computation engine
+│   └── panchang-core/          # Rust computation engine
 │       ├── Cargo.toml
 │       ├── src/
 │       │   ├── lib.rs           # Crate root, PyO3 module definition
@@ -72,7 +72,7 @@ This is the same pattern used by Polars, Pydantic v2, Ruff, cryptography, and or
 │           ├── test_ephemeris.rs
 │           ├── test_panchang.rs
 │           └── test_sun.rs
-├── lilavati/                    # Python package (thin wrapper)
+├── panchang/                    # Python package (thin wrapper)
 │   ├── __init__.py
 │   ├── _core.pyi               # Type stubs for Rust extension
 │   ├── panchang.py              # Public API
@@ -303,9 +303,9 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
 Python side:
 
 ```python
-# lilavati/panchang.py
-from lilavati._core import compute_panchang as _compute_raw
-from lilavati.types import PanchangData
+# panchang/panchang.py
+from panchang._core import compute_panchang as _compute_raw
+from panchang.types import PanchangData
 
 def compute(dt, location, *, include_muhurat=True):
     raw = _compute_raw(
@@ -326,7 +326,7 @@ requires = ["maturin>=1.5"]
 build-backend = "maturin"
 
 [project]
-name = "lilavati"
+name = "panchang"
 version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = ["pydantic>=2.0"]
@@ -335,14 +335,14 @@ dependencies = ["pydantic>=2.0"]
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
-module-name = "lilavati._core"
+module-name = "panchang._core"
 ```
 
 ### Cargo.toml (workspace root)
 
 ```toml
 [workspace]
-members = ["crates/lilavati-core"]
+members = ["crates/panchang-core"]
 
 [workspace.package]
 version = "0.1.0"
@@ -350,11 +350,11 @@ edition = "2021"
 license = "MIT"
 ```
 
-### crates/lilavati-core/Cargo.toml
+### crates/panchang-core/Cargo.toml
 
 ```toml
 [package]
-name = "lilavati-core"
+name = "panchang-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -400,9 +400,9 @@ uv pip install -e .
 The same Rust crate compiles to WebAssembly:
 
 ```toml
-# crates/lilavati-wasm/Cargo.toml
+# crates/panchang-wasm/Cargo.toml
 [dependencies]
-lilavati-core = { path = "../lilavati-core" }
+panchang-core = { path = "../panchang-core" }
 wasm-bindgen = "0.2"
 ```
 
@@ -411,17 +411,17 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub fn panchang(year: i32, month: u8, day: u8, lat: f64, lng: f64) -> JsValue {
-    let result = lilavati_core::panchang::compute(/* ... */);
+    let result = panchang_core::panchang::compute(/* ... */);
     serde_wasm_bindgen::to_value(&result).unwrap()
 }
 ```
 
 ```bash
 wasm-pack build --target web
-# Produces: pkg/lilavati_wasm.js + .wasm
+# Produces: pkg/panchang_wasm.js + .wasm
 ```
 
-This makes Lilavati the first Vedic calendar library that runs natively in the browser.
+This makes Panchang the first Vedic calendar library that runs natively in the browser.
 
 ---
 
@@ -557,14 +557,14 @@ proptest! {
 6. Port `panchang.py` → `panchang.rs` (5 elements with transition times)
 7. Port `muhurat/windows.py` → `muhurat.rs`
 8. PyO3 bridge: expose all functions to Python
-9. Update Python layer to call `lilavati._core` instead of pyswisseph
+9. Update Python layer to call `panchang._core` instead of pyswisseph
 10. All 40 existing Python tests must still pass
 11. Add Rust-side tests with `proptest`
 
 ### Phase 2: WASM target
-12. Create `lilavati-wasm` crate
+12. Create `panchang-wasm` crate
 13. Compile to WebAssembly via `wasm-pack`
-14. Publish `@lilavati/core` to npm
+14. Publish `@panchang/core` to npm
 
 ### Phase 3: Topographic sunrise
 15. SRTM tile loader

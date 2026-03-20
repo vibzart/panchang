@@ -1,4 +1,4 @@
-# Lilavati Regional Calendar Definitions
+# Panchang Regional Calendar Definitions
 #
 # Each regional calendar defines:
 #   - type: "lunar" (month boundaries at Amavasya/Purnima) or "solar" (months at Sankranti)

@@ -1,4 +1,4 @@
-"""Python-side benchmark script for Lilavati.
+"""Python-side benchmark script for Panchang.
 
 Measures the PyO3 call overhead by timing the same operations
 that the Rust criterion benchmarks measure.
@@ -57,7 +57,7 @@ def main():
     jd_sunrise = sunrise_jd
 
     print("=" * 90)
-    print("Lilavati Python Benchmarks (PyO3 boundary overhead)")
+    print("Panchang Python Benchmarks (PyO3 boundary overhead)")
     print("=" * 90)
     print()
 

@@ -1,21 +1,21 @@
-//! Property-based tests for Lilavati core mathematical invariants.
+//! Property-based tests for Panchang core mathematical invariants.
 //!
 //! Uses proptest to verify invariants hold across random inputs,
 //! catching edge cases that hand-written unit tests miss.
 //!
-//! Run: cargo test --manifest-path crates/lilavati-core/Cargo.toml -- --test-threads=1
+//! Run: cargo test --manifest-path crates/panchang-core/Cargo.toml -- --test-threads=1
 //!
 //! IMPORTANT: --test-threads=1 is required because Swiss Ephemeris uses global C state.
 
 use proptest::prelude::*;
 use std::sync::Mutex;
 
-use lilavati_core::angles::{forward_distance, normalize};
-use lilavati_core::ephemeris::{self, Planet};
-use lilavati_core::julian;
-use lilavati_core::muhurat;
-use lilavati_core::panchang;
-use lilavati_core::sun;
+use panchang_core::angles::{forward_distance, normalize};
+use panchang_core::ephemeris::{self, Planet};
+use panchang_core::julian;
+use panchang_core::muhurat;
+use panchang_core::panchang;
+use panchang_core::sun;
 
 /// Global mutex to serialize Swiss Ephemeris access across proptest threads.
 static SWE_LOCK: Mutex<()> = Mutex::new(());

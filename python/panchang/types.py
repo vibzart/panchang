@@ -1,4 +1,4 @@
-"""Data types for Lilavati — Bhāratīya calendar infrastructure."""
+"""Data types for Panchang — Bhāratīya calendar infrastructure."""
 
 from __future__ import annotations
 

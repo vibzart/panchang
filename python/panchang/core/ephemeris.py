@@ -1,4 +1,4 @@
-"""Swiss Ephemeris wrapper for Lilavati.
+"""Swiss Ephemeris wrapper for Panchang.
 
 Provides sidereal planetary positions using the Lahiri/Chitrapaksha Ayanamsa,
 the standard used by the Government of Bhārat's Rashtriya Panchang.

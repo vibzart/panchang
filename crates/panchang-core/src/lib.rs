@@ -1,4 +1,4 @@
-//! Lilavati core computation engine.
+//! Panchang core computation engine.
 //!
 //! Rust implementation of Bhāratīya calendar (Panchang) computations,
 //! exposed to Python via PyO3.
