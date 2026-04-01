@@ -7,30 +7,26 @@ them as typed dicts for passing to the Rust computation engine.
 from __future__ import annotations
 
 from functools import lru_cache
-from pathlib import Path
+from importlib import resources
 
 import yaml
 
 
-def _data_dir() -> Path:
-    """Return the data/ directory at the project root."""
-    return Path(__file__).resolve().parents[3] / "data"
+def _read_data_file(filename: str) -> str:
+    """Read a data file from the panchang.data package using importlib.resources."""
+    return resources.files("panchang.data").joinpath(filename).read_text(encoding="utf-8")
 
 
 @lru_cache(maxsize=1)
 def _load_yaml() -> dict:
     """Load and cache the festivals YAML file."""
-    yaml_path = _data_dir() / "festivals.yaml"
-    with open(yaml_path) as f:
-        return yaml.safe_load(f)
+    return yaml.safe_load(_read_data_file("festivals.yaml"))
 
 
 @lru_cache(maxsize=1)
 def _load_regional_yaml() -> dict:
     """Load and cache the regional calendars YAML file."""
-    yaml_path = _data_dir() / "regional_calendars.yaml"
-    with open(yaml_path) as f:
-        return yaml.safe_load(f)
+    return yaml.safe_load(_read_data_file("regional_calendars.yaml"))
 
 
 def get_festival_defs() -> list[dict]:
