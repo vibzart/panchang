@@ -181,3 +181,69 @@ class TestDateInputs:
         dt = datetime(2026, 2, 24, 10, 30, 0, tzinfo=ist)
         result = panchang.compute(dt, delhi)
         assert result.date == "2026-02-24"
+
+
+class TestMasa:
+    """Tests for lunar month (māsa) in Panchang response."""
+
+    def test_masa_present(self, delhi):
+        """Māsa should be included in panchang result."""
+        result = panchang.compute(date(2026, 4, 12), delhi)
+        assert result.masa is not None
+
+    def test_masa_is_caitra_april_2026(self, delhi):
+        """April 12, 2026 falls in Caitra māsa (Kṛṣṇa pakṣa)."""
+        result = panchang.compute(date(2026, 4, 12), delhi)
+        assert result.masa is not None
+        assert result.masa.name == "Caitra"
+        assert result.masa.number == 1
+        assert result.masa.is_adhik is False
+
+    def test_masa_number_range(self, delhi):
+        """Māsa number should be 1-12."""
+        result = panchang.compute(date(2026, 2, 24), delhi)
+        if result.masa:
+            assert 1 <= result.masa.number <= 12
+
+    def test_masa_name_is_iast(self, delhi):
+        """Māsa name should be in IAST (with diacritics)."""
+        result = panchang.compute(date(2026, 4, 12), delhi)
+        assert result.masa is not None
+        # IAST forms use diacritics — Caitra has none, but Vaiśākha does
+        result_may = panchang.compute(date(2026, 5, 5), delhi)
+        if result_may.masa:
+            assert result_may.masa.name == "Vaiśākha"
+
+    def test_masa_paksha_matches_tithi(self, delhi):
+        """Māsa pakṣa should match the tithi pakṣa."""
+        result = panchang.compute(date(2026, 4, 12), delhi)
+        assert result.masa is not None
+        assert result.masa.paksha == result.tithi.paksha
+
+
+class TestSamvat:
+    """Tests for saṃvatsara (era year) in Panchang response."""
+
+    def test_samvat_present(self, delhi):
+        """Samvat should be included in panchang result."""
+        result = panchang.compute(date(2026, 4, 12), delhi)
+        assert result.samvat is not None
+
+    def test_vikram_samvat_2026(self, delhi):
+        """April 2026 CE = Vikram Saṃvat 2083."""
+        result = panchang.compute(date(2026, 4, 12), delhi)
+        assert result.samvat is not None
+        assert result.samvat.vikram == 2083
+
+    def test_shaka_samvat_2026(self, delhi):
+        """April 2026 CE = Śaka Saṃvat 1948."""
+        result = panchang.compute(date(2026, 4, 12), delhi)
+        assert result.samvat is not None
+        assert result.samvat.shaka == 1948
+
+    def test_samvatsara_name_present(self, delhi):
+        """60-year Jovian cycle name should be present."""
+        result = panchang.compute(date(2026, 4, 12), delhi)
+        assert result.samvat is not None
+        assert result.samvat.samvatsara_name is not None
+        assert len(result.samvat.samvatsara_name) > 0

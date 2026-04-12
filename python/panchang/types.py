@@ -289,6 +289,25 @@ class TimeWindow(BaseModel):
 # --- Composite Panchang result ---
 
 
+class MasaInfo(BaseModel):
+    """Hindu lunar month (māsa) for the current date."""
+
+    number: int = Field(..., ge=1, le=12, description="Month number (1=Chaitra, 12=Phālguna)")
+    name: str = Field(..., description="Month name in IAST (e.g. 'Vaiśākha')")
+    is_adhik: bool = Field(
+        default=False, description="Whether this is an Adhik (intercalary) month"
+    )
+    paksha: Paksha = Field(..., description="Śukla (waxing) or Kṛṣṇa (waning) fortnight")
+
+
+class SamvatInfo(BaseModel):
+    """Hindu era year (saṃvatsara) information."""
+
+    vikram: int = Field(..., description="Vikram Saṃvat year (CE + 57)")
+    shaka: int = Field(..., description="Śaka Saṃvat year (CE − 78)")
+    samvatsara_name: Optional[str] = Field(None, description="60-year Jovian cycle year name")
+
+
 class PanchangData(BaseModel):
     """Complete Panchang data for a date and location."""
 
@@ -300,6 +319,8 @@ class PanchangData(BaseModel):
     nakshatra: NakshatraInfo
     yoga: YogaInfo
     karana: KaranaInfo
+    masa: Optional[MasaInfo] = Field(None, description="Hindu lunar month (māsa)")
+    samvat: Optional[SamvatInfo] = Field(None, description="Hindu era year (saṃvatsara)")
     rahu_kalam: Optional[TimeWindow] = None
     yama_gandam: Optional[TimeWindow] = None
     gulika_kalam: Optional[TimeWindow] = None
