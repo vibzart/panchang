@@ -101,9 +101,7 @@ _MASA_IAST: dict[str, str] = {
 }
 
 
-def _compute_masa(
-    dt: datetime, location: Location, panchang: PanchangData
-) -> MasaInfo | None:
+def _compute_masa(dt: datetime, location: Location, panchang: PanchangData) -> MasaInfo | None:
     """Determine the lunar month for a given date."""
     year = dt.year
     months = compute_lunar_months(year, location, CalendarSystem.PURNIMANT)
