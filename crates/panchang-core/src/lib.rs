@@ -72,6 +72,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_era_year, m)?)?;
     m.add_function(wrap_pyfunction!(py_jovian_cycle_index, m)?)?;
     m.add_function(wrap_pyfunction!(py_compute_shraddha, m)?)?;
+    m.add_function(wrap_pyfunction!(py_compute_shraddha_timeline, m)?)?;
 
     // Planet constants for Python
     m.add("PLANET_SUN", 0)?;
@@ -621,6 +622,89 @@ fn py_compute_shraddha<'py>(
             dict.set_item("day", r.day)?;
             dict.set_item("sunrise_jd", r.sunrise_jd)?;
             dict.set_item("reasoning", &r.reasoning)?;
+            Ok(Some(dict))
+        }
+        None => Ok(None),
+    }
+}
+
+/// Compute complete Shraddha timeline (monthly, annual, pitru paksha) in one call.
+#[pyfunction]
+#[allow(clippy::too_many_arguments)]
+fn py_compute_shraddha_timeline<'py>(
+    py: Python<'py>,
+    death_year: i32,
+    death_month: u32,
+    death_day: u32,
+    lat: f64,
+    lng: f64,
+    alt: f64,
+    utc_offset: i32,
+    monthly_count: usize,
+    annual_years: usize,
+    pitru_paksha_years: usize,
+) -> PyResult<Option<Bound<'py, PyDict>>> {
+    ephemeris::init(None);
+
+    let result = shraddha::compute_shraddha_timeline(
+        death_year,
+        death_month,
+        death_day,
+        lat,
+        lng,
+        alt,
+        utc_offset,
+        monthly_count,
+        annual_years,
+        pitru_paksha_years,
+    );
+
+    match result {
+        Some(tl) => {
+            let dict = PyDict::new(py);
+            dict.set_item("death_date", &tl.death_date)?;
+            dict.set_item("death_tithi", &tl.death_tithi_name)?;
+            dict.set_item("death_tithi_number", tl.death_tithi)?;
+            dict.set_item("death_paksha", tl.death_paksha)?;
+            dict.set_item("death_nakshatra", tl.death_nakshatra)?;
+            dict.set_item("death_masa", tl.death_masa)?;
+            dict.set_item("teesra", &tl.teesra)?;
+            dict.set_item("dashama", &tl.dashama)?;
+            dict.set_item("terahvin", &tl.terahvin)?;
+
+            let occ_to_dict = |o: &shraddha::TithiOccurrence| -> PyResult<Bound<'py, PyDict>> {
+                let d = PyDict::new(py);
+                d.set_item("date", format!("{}-{:02}-{:02}", o.year, o.month, o.day))?;
+                d.set_item("tithi_name", &o.tithi_name)?;
+                d.set_item("tithi_number", o.tithi_number)?;
+                d.set_item("paksha", o.paksha)?;
+                d.set_item("nakshatra_name", o.nakshatra_name)?;
+                d.set_item("masa", o.masa)?;
+                d.set_item("vara", o.vara)?;
+                Ok(d)
+            };
+
+            let monthly: Vec<_> = tl
+                .monthly_shraddhas
+                .iter()
+                .map(occ_to_dict)
+                .collect::<PyResult<_>>()?;
+            dict.set_item("monthly_shraddhas", monthly)?;
+
+            let annual: Vec<_> = tl
+                .annual_shraddhas
+                .iter()
+                .map(occ_to_dict)
+                .collect::<PyResult<_>>()?;
+            dict.set_item("annual_shraddhas", annual)?;
+
+            let pitru: Vec<_> = tl
+                .pitru_paksha_dates
+                .iter()
+                .map(occ_to_dict)
+                .collect::<PyResult<_>>()?;
+            dict.set_item("pitru_paksha_dates", pitru)?;
+
             Ok(Some(dict))
         }
         None => Ok(None),

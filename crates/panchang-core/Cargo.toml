@@ -1,6 +1,6 @@
 [package]
 name = "panchang-core"
-version = "0.2.4"
+version = "0.2.5"
 edition = "2021"
 license = "MIT"
 description = "Rust computation engine for Panchang — Bhāratīya calendar library"
