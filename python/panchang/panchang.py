@@ -43,6 +43,7 @@ def compute(
     location: Location,
     engine: EphemerisEngine | None = None,
     include_muhurat: bool = True,
+    calendar_system: CalendarSystem = CalendarSystem.AMANT,
 ) -> PanchangData:
     """Compute complete Panchang for a date and location.
 
@@ -71,7 +72,7 @@ def compute(
 
     # Lunar month (māsa) — determine which month this date falls into
     try:
-        result.masa = _compute_masa(dt, location, result)
+        result.masa = _compute_masa(dt, location, result, calendar_system)
     except Exception:
         pass  # degrade gracefully if lunar month computation fails
 
@@ -101,10 +102,15 @@ _MASA_IAST: dict[str, str] = {
 }
 
 
-def _compute_masa(dt: datetime, location: Location, panchang: PanchangData) -> MasaInfo | None:
+def _compute_masa(
+    dt: datetime,
+    location: Location,
+    panchang: PanchangData,
+    system: CalendarSystem = CalendarSystem.AMANT,
+) -> MasaInfo | None:
     """Determine the lunar month for a given date."""
     year = dt.year
-    months = compute_lunar_months(year, location, CalendarSystem.PURNIMANT)
+    months = compute_lunar_months(year, location, system)
 
     # Find which lunar month this date falls into (compare UTC timestamps)
     from zoneinfo import ZoneInfo
