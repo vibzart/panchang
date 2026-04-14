@@ -143,7 +143,11 @@ pub fn compute_lunar_months(year: i32, system: CalendarSystem) -> Vec<LunarMonth
     let is_purnimant = system == CalendarSystem::Purnimant;
     let adjust = |amant_num: u32| -> (u32, &'static str) {
         let num = if is_purnimant {
-            if amant_num == 12 { 1 } else { amant_num + 1 }
+            if amant_num == 12 {
+                1
+            } else {
+                amant_num + 1
+            }
         } else {
             amant_num
         };

@@ -285,7 +285,11 @@ fn find_tithi_at_sunrise_in_range(
     let start_dt = local_date(start_jd, utc_offset);
     let mut midnight = julian::midnight_jd(start_dt.year, start_dt.month, start_dt.day, utc_offset);
 
-    let preceding_tithi = if target_tithi == 1 { 30 } else { target_tithi - 1 };
+    let preceding_tithi = if target_tithi == 1 {
+        30
+    } else {
+        target_tithi - 1
+    };
     let mut preceding_candidate: Option<(f64, julian::DateTimeComponents)> = None;
 
     while midnight <= end_jd {
@@ -358,14 +362,20 @@ fn resolve_tithi_festival(
     let lunar_months = lunar_month::compute_lunar_months(s_dt.year, CalendarSystem::Amant);
 
     // Find the NIJA (non-adhik) month matching our target month number
-    let target_month = lunar_months.iter().find(|m| {
-        m.number == def.lunar_month && !m.is_adhik
-    });
+    let target_month = lunar_months
+        .iter()
+        .find(|m| m.number == def.lunar_month && !m.is_adhik);
 
     if let Some(lm) = target_month {
         // Search within the exact lunar month boundaries
         if let Some((sunrise, dt)) = find_tithi_at_sunrise_in_range(
-            def.tithi, lm.start_jd, lm.end_jd, lat, lng, alt, utc_offset,
+            def.tithi,
+            lm.start_jd,
+            lm.end_jd,
+            lat,
+            lng,
+            alt,
+            utc_offset,
         ) {
             let reasoning = format!(
                 "{} {} (Tithi {}) prevails at sunrise ({}) on {}-{:02}-{:02}. \
@@ -947,14 +957,22 @@ mod tests {
         ephemeris::init(None);
         let defs = vec![
             FestivalDef {
-                id: "late".into(), name: "Late Year".into(),
-                rule: "tithi_at_sunrise".into(), lunar_month: 8, tithi: 30,
-                sankranti_index: None, nakshatra: None,
+                id: "late".into(),
+                name: "Late Year".into(),
+                rule: "tithi_at_sunrise".into(),
+                lunar_month: 8,
+                tithi: 30,
+                sankranti_index: None,
+                nakshatra: None,
             },
             FestivalDef {
-                id: "early".into(), name: "Early Year".into(),
-                rule: "tithi_at_sunrise".into(), lunar_month: 1, tithi: 9,
-                sankranti_index: None, nakshatra: None,
+                id: "early".into(),
+                name: "Early Year".into(),
+                rule: "tithi_at_sunrise".into(),
+                lunar_month: 1,
+                tithi: 9,
+                sankranti_index: None,
+                nakshatra: None,
             },
         ];
         let results = compute_festivals(&defs, 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
@@ -962,7 +980,8 @@ mod tests {
         assert!(
             results[0].sunrise_jd < results[1].sunrise_jd,
             "Results should be chronological: {} before {}",
-            results[0].festival_name, results[1].festival_name
+            results[0].festival_name,
+            results[1].festival_name
         );
     }
 
@@ -1138,7 +1157,10 @@ mod tests {
 
         // Chaitra Navaratri & Ugadi: must be in March 2026, NOT April.
         // Web sources: March 19, 2026 (Chaitra Shukla Pratipada).
-        let navaratri = results.iter().find(|r| r.festival_id == "chaitra_navaratri").unwrap();
+        let navaratri = results
+            .iter()
+            .find(|r| r.festival_id == "chaitra_navaratri")
+            .unwrap();
         assert_eq!(
             navaratri.month, 3,
             "Chaitra Navaratri should be in March, got {}-{:02}-{:02}. Reasoning: {}",
@@ -1159,7 +1181,10 @@ mod tests {
         );
 
         // Ram Navami: web source says March 26-27.
-        let ram_navami = results.iter().find(|r| r.festival_id == "ram_navami").unwrap();
+        let ram_navami = results
+            .iter()
+            .find(|r| r.festival_id == "ram_navami")
+            .unwrap();
         assert_eq!(
             ram_navami.month, 3,
             "Ram Navami should be in March, got {}-{:02}-{:02}",
@@ -1210,21 +1235,29 @@ mod tests {
         let results = compute_festivals(&defs, 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
 
         // Akshaya Tritiya: web says Apr 19. Allow ±1 day.
-        let at = results.iter().find(|r| r.festival_id == "akshaya_tritiya").unwrap();
+        let at = results
+            .iter()
+            .find(|r| r.festival_id == "akshaya_tritiya")
+            .unwrap();
         assert_eq!(at.month, 4, "Akshaya Tritiya should be in April");
         assert!(
             at.day >= 18 && at.day <= 20,
             "Akshaya Tritiya expected ~Apr 19, got Apr {}. Reasoning: {}",
-            at.day, at.reasoning
+            at.day,
+            at.reasoning
         );
 
         // Dussehra: web says Oct 20. Allow ±1 day.
-        let duss = results.iter().find(|r| r.festival_id == "dussehra").unwrap();
+        let duss = results
+            .iter()
+            .find(|r| r.festival_id == "dussehra")
+            .unwrap();
         assert_eq!(duss.month, 10, "Dussehra should be in October");
         assert!(
             duss.day >= 19 && duss.day <= 21,
             "Dussehra expected ~Oct 20, got Oct {}. Reasoning: {}",
-            duss.day, duss.reasoning
+            duss.day,
+            duss.reasoning
         );
 
         // Diwali: web says Nov 8. Allow ±1 day.
@@ -1233,7 +1266,8 @@ mod tests {
         assert!(
             diw.day >= 7 && diw.day <= 9,
             "Diwali expected ~Nov 8, got Nov {}. Reasoning: {}",
-            diw.day, diw.reasoning
+            diw.day,
+            diw.reasoning
         );
     }
 }

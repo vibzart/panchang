@@ -128,11 +128,7 @@ fn lunar_month_for_date(year: i32, month: u32, day: u32, utc_offset: i32) -> u32
 }
 
 /// Build a TithiOccurrence from a sunrise JD.
-fn occurrence_at_sunrise(
-    sunrise_jd: f64,
-    utc_offset: i32,
-    target_tithi: u32,
-) -> TithiOccurrence {
+fn occurrence_at_sunrise(sunrise_jd: f64, utc_offset: i32, target_tithi: u32) -> TithiOccurrence {
     let dt = julian::jd_to_datetime(sunrise_jd + (utc_offset as f64) / 86400.0);
     let weekday = ((sunrise_jd + 1.5).floor() as u32) % 7;
 
@@ -147,7 +143,11 @@ fn occurrence_at_sunrise(
         "Unknown"
     };
 
-    let paksha = if target_tithi <= 15 { "Shukla" } else { "Krishna" };
+    let paksha = if target_tithi <= 15 {
+        "Shukla"
+    } else {
+        "Krishna"
+    };
     let tithi_idx = (target_tithi - 1) as usize;
     let tithi_name = if target_tithi <= 15 {
         format!("Shukla {}", crate::constants::TITHI_NAMES[tithi_idx])
@@ -300,22 +300,31 @@ pub fn compute_shraddha_timeline(
 
     // Step 1: Compute death tithi and panchang
     let (death_tithi, death_sunrise) = tithi_at_sunrise(
-        death_year, death_month, death_day, lat, lng, alt, utc_offset,
+        death_year,
+        death_month,
+        death_day,
+        lat,
+        lng,
+        alt,
+        utc_offset,
     );
     let weekday = ((death_sunrise + 1.5).floor() as u32) % 7;
     let pr = panchang::compute(death_sunrise, weekday);
 
     // Death details
     let lunar_month_num = lunar_month_for_date(death_year, death_month, death_day, utc_offset);
-    let death_masa = if lunar_month_num >= 1
-        && (lunar_month_num as usize) <= LUNAR_MONTH_NAMES.len()
-    {
-        LUNAR_MONTH_NAMES[(lunar_month_num - 1) as usize]
-    } else {
-        "Unknown"
-    };
+    let death_masa =
+        if lunar_month_num >= 1 && (lunar_month_num as usize) <= LUNAR_MONTH_NAMES.len() {
+            LUNAR_MONTH_NAMES[(lunar_month_num - 1) as usize]
+        } else {
+            "Unknown"
+        };
 
-    let death_paksha = if death_tithi <= 15 { "Shukla" } else { "Krishna" };
+    let death_paksha = if death_tithi <= 15 {
+        "Shukla"
+    } else {
+        "Krishna"
+    };
     let tithi_idx = (death_tithi - 1) as usize;
     let death_tithi_name = if death_tithi <= 15 {
         format!("Shukla {}", crate::constants::TITHI_NAMES[tithi_idx])
@@ -345,7 +354,13 @@ pub fn compute_shraddha_timeline(
     // Step 3: Monthly shraddhas — find next N occurrences of the death tithi
     let monthly_start_jd = death_jd + 13.0; // start after terahvin
     let monthly_shraddhas = find_tithi_occurrences(
-        death_tithi, monthly_start_jd, monthly_count, lat, lng, alt, utc_offset,
+        death_tithi,
+        monthly_start_jd,
+        monthly_count,
+        lat,
+        lng,
+        alt,
+        utc_offset,
     );
 
     // Step 4: Annual shraddhas using festival engine
@@ -363,7 +378,15 @@ pub fn compute_shraddha_timeline(
     let mut annual_shraddhas: Vec<TithiOccurrence> = Vec::with_capacity(annual_years);
     for year_offset in 1..=(annual_years as i32) {
         let target_year = death_year + year_offset;
-        let results = festival::compute_festivals(&defs, target_year, lat, lng, alt, utc_offset, crate::lunar_month::CalendarSystem::Amant);
+        let results = festival::compute_festivals(
+            &defs,
+            target_year,
+            lat,
+            lng,
+            alt,
+            utc_offset,
+            crate::lunar_month::CalendarSystem::Amant,
+        );
         if let Some(r) = results.first() {
             let sunrise = sun::sunrise_jd(
                 julian::midnight_jd(r.year, r.month, r.day, utc_offset),
@@ -379,9 +402,9 @@ pub fn compute_shraddha_timeline(
     let mut pitru_paksha_dates: Vec<TithiOccurrence> = Vec::with_capacity(pitru_paksha_years);
     for year_offset in 0..(pitru_paksha_years as i32) {
         let target_year = death_year + year_offset;
-        if let Some(pp) = find_pitru_paksha_date(
-            death_tithi, target_year, lat, lng, alt, utc_offset,
-        ) {
+        if let Some(pp) =
+            find_pitru_paksha_date(death_tithi, target_year, lat, lng, alt, utc_offset)
+        {
             pitru_paksha_dates.push(pp);
         }
     }
@@ -451,7 +474,15 @@ pub fn compute_shraddha(
     };
 
     let defs = vec![def];
-    let results = festival::compute_festivals(&defs, target_year, lat, lng, alt, utc_offset, crate::lunar_month::CalendarSystem::Amant);
+    let results = festival::compute_festivals(
+        &defs,
+        target_year,
+        lat,
+        lng,
+        alt,
+        utc_offset,
+        crate::lunar_month::CalendarSystem::Amant,
+    );
 
     if let Some(r) = results.first() {
         let month_name = if (lunar_month_num as usize) >= 1
@@ -586,9 +617,7 @@ mod tests {
     #[test]
     fn test_shraddha_timeline() {
         ephemeris::init(None);
-        let result = compute_shraddha_timeline(
-            2025, 6, 15, 28.6139, 77.2090, 0.0, 19800, 2, 1, 1,
-        );
+        let result = compute_shraddha_timeline(2025, 6, 15, 28.6139, 77.2090, 0.0, 19800, 2, 1, 1);
         assert!(result.is_some());
         let tl = result.unwrap();
         assert_eq!(tl.death_date, "2025-06-15");
