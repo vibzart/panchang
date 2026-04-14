@@ -133,6 +133,23 @@ pub fn compute_lunar_months(year: i32, system: CalendarSystem) -> Vec<LunarMonth
 
     let mut months = Vec::with_capacity(14);
 
+    // In Purnimant, the month is named after the Purnima that ENDS it.
+    // A Sankranti that falls within a Purnima→Purnima boundary names
+    // the NEXT month (because the ending Purnima belongs to the next
+    // Amant month). So we shift the Sankranti-derived month number by +1.
+    //
+    // In Amant, the Sankranti falls roughly in the middle of the month
+    // and directly names it — no shift needed.
+    let is_purnimant = system == CalendarSystem::Purnimant;
+    let adjust = |amant_num: u32| -> (u32, &'static str) {
+        let num = if is_purnimant {
+            if amant_num == 12 { 1 } else { amant_num + 1 }
+        } else {
+            amant_num
+        };
+        (num, LUNAR_MONTH_NAMES[(num - 1) as usize])
+    };
+
     // For each consecutive pair of boundaries, determine the month
     for i in 0..boundaries.len() - 1 {
         let start_jd = boundaries[i];
@@ -147,12 +164,12 @@ pub fn compute_lunar_months(year: i32, system: CalendarSystem) -> Vec<LunarMonth
         match sankrantis_within.len() {
             0 => {
                 // Adhik Maas — no Sankranti within this month.
-                // Name it after the NEXT month's Sankranti.
+                // Name it after the NEXT month's Sankranti (then apply system adjustment).
                 let next_sankranti = all_sankrantis.iter().find(|s| s.jd > end_jd);
                 let (number, name) = if let Some(ns) = next_sankranti {
                     let rashi_idx = SANKRANTI_RASHI_INDEX[ns.index as usize];
-                    let month_num = SANKRANTI_TO_LUNAR_MONTH[rashi_idx];
-                    (month_num, LUNAR_MONTH_NAMES[(month_num - 1) as usize])
+                    let amant_num = SANKRANTI_TO_LUNAR_MONTH[rashi_idx];
+                    adjust(amant_num)
                 } else {
                     (0, "Unknown")
                 };
@@ -169,10 +186,10 @@ pub fn compute_lunar_months(year: i32, system: CalendarSystem) -> Vec<LunarMonth
                 // Normal month — one Sankranti determines the name.
                 let s = sankrantis_within[0];
                 let rashi_idx = SANKRANTI_RASHI_INDEX[s.index as usize];
-                let month_num = SANKRANTI_TO_LUNAR_MONTH[rashi_idx];
-                let name = LUNAR_MONTH_NAMES[(month_num - 1) as usize];
+                let amant_num = SANKRANTI_TO_LUNAR_MONTH[rashi_idx];
+                let (number, name) = adjust(amant_num);
                 months.push(LunarMonthInfo {
-                    number: month_num,
+                    number,
                     name,
                     is_adhik: false,
                     is_kshaya: false,
@@ -185,10 +202,10 @@ pub fn compute_lunar_months(year: i32, system: CalendarSystem) -> Vec<LunarMonth
                 // Name after the first Sankranti.
                 let s = sankrantis_within[0];
                 let rashi_idx = SANKRANTI_RASHI_INDEX[s.index as usize];
-                let month_num = SANKRANTI_TO_LUNAR_MONTH[rashi_idx];
-                let name = LUNAR_MONTH_NAMES[(month_num - 1) as usize];
+                let amant_num = SANKRANTI_TO_LUNAR_MONTH[rashi_idx];
+                let (number, name) = adjust(amant_num);
                 months.push(LunarMonthInfo {
-                    number: month_num,
+                    number,
                     name,
                     is_adhik: false,
                     is_kshaya: true,

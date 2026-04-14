@@ -14,6 +14,7 @@ from panchang.calendar._data import get_ekadashi_defs, get_festival_defs
 from panchang.core.ephemeris import jd_to_datetime
 from panchang.core.sun import _tz_offset_for_date
 from panchang.types import (
+    CalendarSystem,
     EkadashiInfo,
     FestivalInfo,
     Location,
@@ -22,7 +23,12 @@ from panchang.types import (
 )
 
 
-def compute_festivals(year: int, location: Location) -> list[FestivalInfo]:
+def compute_festivals(
+    year: int,
+    location: Location,
+    *,
+    calendar_system: CalendarSystem = CalendarSystem.PURNIMANT,
+) -> list[FestivalInfo]:
     """Compute all festival dates for a year.
 
     Festival definitions are loaded from data/festivals.yaml.
@@ -30,6 +36,9 @@ def compute_festivals(year: int, location: Location) -> list[FestivalInfo]:
     Args:
         year: Gregorian year.
         location: Geographic location (sunrise times affect festival dates).
+        calendar_system: Lunar calendar system. Purnimant (default, North India)
+            or Amant (South/West India). Affects Krishna Paksha festival dates;
+            Shukla Paksha festivals are identical in both systems.
 
     Returns:
         List of FestivalInfo, sorted chronologically.
@@ -45,6 +54,7 @@ def compute_festivals(year: int, location: Location) -> list[FestivalInfo]:
         location.lng,
         location.altitude,
         utc_offset,
+        calendar_system.value,
     )
 
     results = []

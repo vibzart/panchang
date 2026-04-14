@@ -363,7 +363,7 @@ pub fn compute_shraddha_timeline(
     let mut annual_shraddhas: Vec<TithiOccurrence> = Vec::with_capacity(annual_years);
     for year_offset in 1..=(annual_years as i32) {
         let target_year = death_year + year_offset;
-        let results = festival::compute_festivals(&defs, target_year, lat, lng, alt, utc_offset);
+        let results = festival::compute_festivals(&defs, target_year, lat, lng, alt, utc_offset, crate::lunar_month::CalendarSystem::Amant);
         if let Some(r) = results.first() {
             let sunrise = sun::sunrise_jd(
                 julian::midnight_jd(r.year, r.month, r.day, utc_offset),
@@ -451,7 +451,7 @@ pub fn compute_shraddha(
     };
 
     let defs = vec![def];
-    let results = festival::compute_festivals(&defs, target_year, lat, lng, alt, utc_offset);
+    let results = festival::compute_festivals(&defs, target_year, lat, lng, alt, utc_offset, crate::lunar_month::CalendarSystem::Amant);
 
     if let Some(r) = results.first() {
         let month_name = if (lunar_month_num as usize) >= 1

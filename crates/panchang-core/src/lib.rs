@@ -386,6 +386,7 @@ fn py_compute_lunar_months<'py>(
 /// Compute festival dates from definitions (passed as list of dicts from YAML).
 /// Each dict: {id, name, rule, lunar_month, tithi, sankranti_index}.
 #[pyfunction]
+#[pyo3(signature = (festival_defs, year, lat, lng, alt, utc_offset, calendar_system=None))]
 #[allow(clippy::too_many_arguments)]
 fn py_compute_festivals<'py>(
     py: Python<'py>,
@@ -395,8 +396,14 @@ fn py_compute_festivals<'py>(
     lng: f64,
     alt: f64,
     utc_offset: i32,
+    calendar_system: Option<&str>,
 ) -> PyResult<Vec<Bound<'py, PyDict>>> {
     ephemeris::init(None);
+
+    let system = match calendar_system.unwrap_or("purnimant") {
+        "amant" | "amanta" => lunar_month::CalendarSystem::Amant,
+        _ => lunar_month::CalendarSystem::Purnimant,
+    };
 
     let mut defs = Vec::new();
     for item in festival_defs.iter() {
@@ -412,7 +419,7 @@ fn py_compute_festivals<'py>(
         });
     }
 
-    let results = festival::compute_festivals(&defs, year, lat, lng, alt, utc_offset);
+    let results = festival::compute_festivals(&defs, year, lat, lng, alt, utc_offset, system);
 
     results
         .iter()
