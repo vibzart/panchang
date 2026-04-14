@@ -386,12 +386,15 @@ festivals:
 
   - id: janmashtami
     name: Janmashtami
-    description: Birth of Lord Krishna
+    description: Birth of Lord Krishna — Shravana Krishna Ashtami
     rule: tithi_at_sunrise
-    lunar_month: 6
+    lunar_month: 5       # Shravana (per shloka: मासि तु श्रावणेऽष्टम्यां)
     tithi: 23            # Krishna Ashtami
     aliases: [Krishna Janmashtami, Gokulashtami]
     regions: [all]
+    # NOTE: North Indian Purnimant tradition calls this "Bhadrapada Krishna
+    # Ashtami" because Shravana's Krishna Paksha falls in Purnimant-Bhadrapada.
+    # The Amant month is Shravana. Source: Brahma Vaivarta Purana; adyatithi.
 
   # ==========================================================================
   # ASHWIN (Month 7) — Sep-Oct

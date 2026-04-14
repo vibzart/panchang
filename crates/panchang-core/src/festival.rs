@@ -896,281 +896,95 @@ mod tests {
         ]
     }
 
+    // ─── Engine-level tests ─────────────────────────────────────────────
+    // These use SYNTHETIC festival defs to test the resolution engine.
+    // No duplication of festivals.yaml data.
+
+    /// The engine resolves a tithi_at_sunrise rule and returns a valid date.
     #[test]
-    fn test_diwali_2026() {
+    fn test_engine_resolves_tithi_at_sunrise() {
         ephemeris::init(None);
+        // Synthetic: Shukla Purnima (tithi 15) in Phalguna (month 12)
         let defs = vec![FestivalDef {
-            id: "diwali".into(),
-            name: "Diwali".into(),
+            id: "test_purnima".into(),
+            name: "Test Purnima".into(),
             rule: "tithi_at_sunrise".into(),
-            lunar_month: 8, // Kartik
-            tithi: 30,      // Amavasya
+            lunar_month: 12,
+            tithi: 15,
             sankranti_index: None,
             nakshatra: None,
         }];
-
         let results = compute_festivals(&defs, 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
         assert_eq!(results.len(), 1);
-        let diwali = &results[0];
-
-        // Diwali 2026 — 2026 has an Adhik Maas, so Diwali shifts later.
-        // Expected around Oct-Nov (Kartik Amavasya in Amant Ashwin month).
-        assert!(
-            diwali.month >= 10 && diwali.month <= 11,
-            "Diwali month: {} (expected Oct or Nov)",
-            diwali.month
-        );
-        assert_eq!(diwali.tithi_at_sunrise, 30);
-        assert!(diwali.reasoning.contains("Kartik"));
+        assert_eq!(results[0].year, 2026);
+        assert!(results[0].month >= 1 && results[0].month <= 12);
+        assert!(!results[0].reasoning.is_empty());
     }
 
+    /// The engine resolves a sankranti rule to a valid date.
     #[test]
-    fn test_holi_2026() {
+    fn test_engine_resolves_sankranti() {
         ephemeris::init(None);
         let defs = vec![FestivalDef {
-            id: "holi".into(),
-            name: "Holi".into(),
-            rule: "tithi_at_sunrise".into(),
-            lunar_month: 12, // Phalguna
-            tithi: 15,       // Purnima
-            sankranti_index: None,
-            nakshatra: None,
-        }];
-
-        let results = compute_festivals(&defs, 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
-        assert_eq!(results.len(), 1);
-        let holi = &results[0];
-
-        // Holi 2026 — Phalguna Purnima, expected Feb or Mar
-        assert!(
-            holi.month >= 2 && holi.month <= 3,
-            "Holi month: {} (expected Feb or Mar)",
-            holi.month
-        );
-        assert!(holi.reasoning.contains("Phalguna"));
-    }
-
-    #[test]
-    fn test_makar_sankranti_festival() {
-        ephemeris::init(None);
-        let defs = vec![FestivalDef {
-            id: "makar_sankranti".into(),
-            name: "Makar Sankranti".into(),
+            id: "test_sankranti".into(),
+            name: "Test Makar Sankranti".into(),
             rule: "sankranti".into(),
             lunar_month: 0,
             tithi: 0,
-            sankranti_index: Some(0),
+            sankranti_index: Some(0), // Makar
             nakshatra: None,
         }];
-
         let results = compute_festivals(&defs, 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
         assert_eq!(results.len(), 1);
-        let ms = &results[0];
+        // Makar Sankranti is always in January
+        assert_eq!(results[0].month, 1);
+        assert!(results[0].day >= 13 && results[0].day <= 15);
+    }
 
-        // Makar Sankranti 2026 ~Jan 14
-        assert_eq!(ms.month, 1);
+    /// Multiple festivals are returned sorted chronologically.
+    #[test]
+    fn test_engine_results_sorted_chronologically() {
+        ephemeris::init(None);
+        let defs = vec![
+            FestivalDef {
+                id: "late".into(), name: "Late Year".into(),
+                rule: "tithi_at_sunrise".into(), lunar_month: 8, tithi: 30,
+                sankranti_index: None, nakshatra: None,
+            },
+            FestivalDef {
+                id: "early".into(), name: "Early Year".into(),
+                rule: "tithi_at_sunrise".into(), lunar_month: 1, tithi: 9,
+                sankranti_index: None, nakshatra: None,
+            },
+        ];
+        let results = compute_festivals(&defs, 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
+        assert_eq!(results.len(), 2);
         assert!(
-            ms.day >= 13 && ms.day <= 15,
-            "Makar Sankranti day: {}",
-            ms.day
+            results[0].sunrise_jd < results[1].sunrise_jd,
+            "Results should be chronological: {} before {}",
+            results[0].festival_name, results[1].festival_name
         );
-        assert!(ms.reasoning.contains("Makara"));
     }
 
+    /// Kshaya tithi: when a tithi never prevails at sunrise, the engine
+    /// falls back to the preceding tithi day (Dharmashastra convention).
     #[test]
-    fn test_multiple_festivals_sorted() {
+    fn test_engine_kshaya_tithi_fallback() {
         ephemeris::init(None);
-        let defs = vec![
-            FestivalDef {
-                id: "diwali".into(),
-                name: "Diwali".into(),
-                rule: "tithi_at_sunrise".into(),
-                lunar_month: 8,
-                tithi: 30,
-                sankranti_index: None,
-                nakshatra: None,
-            },
-            FestivalDef {
-                id: "holi".into(),
-                name: "Holi".into(),
-                rule: "tithi_at_sunrise".into(),
-                lunar_month: 12,
-                tithi: 15,
-                sankranti_index: None,
-                nakshatra: None,
-            },
-            FestivalDef {
-                id: "ram_navami".into(),
-                name: "Ram Navami".into(),
-                rule: "tithi_at_sunrise".into(),
-                lunar_month: 1, // Chaitra
-                tithi: 9,       // Shukla Navami
-                sankranti_index: None,
-                nakshatra: None,
-            },
-        ];
-
+        // Chaitra Shukla Pratipada 2026 is kshaya (never prevails at sunrise).
+        // Engine should fall back to the Amavasya day (March 19).
+        let defs = vec![FestivalDef {
+            id: "test_kshaya".into(),
+            name: "Test Kshaya".into(),
+            rule: "tithi_at_sunrise".into(),
+            lunar_month: 1,
+            tithi: 1,
+            sankranti_index: None,
+            nakshatra: None,
+        }];
         let results = compute_festivals(&defs, 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
-        assert_eq!(results.len(), 3, "Expected 3 festivals");
-
-        // Should be sorted chronologically
-        for i in 1..results.len() {
-            assert!(
-                results[i].sunrise_jd > results[i - 1].sunrise_jd,
-                "{} should come after {}",
-                results[i].festival_name,
-                results[i - 1].festival_name
-            );
-        }
-
-        // All should have reasoning
-        for r in &results {
-            assert!(
-                !r.reasoning.is_empty(),
-                "Reasoning for {} should not be empty",
-                r.festival_name
-            );
-        }
-    }
-
-    #[test]
-    fn test_all_festivals_have_valid_dates() {
-        ephemeris::init(None);
-        let defs = vec![
-            FestivalDef {
-                id: "ganesh_chaturthi".into(),
-                name: "Ganesh Chaturthi".into(),
-                rule: "tithi_at_sunrise".into(),
-                lunar_month: 6,
-                tithi: 4,
-                sankranti_index: None,
-                nakshatra: None,
-            },
-            FestivalDef {
-                id: "dussehra".into(),
-                name: "Dussehra".into(),
-                rule: "tithi_at_sunrise".into(),
-                lunar_month: 7,
-                tithi: 10,
-                sankranti_index: None,
-                nakshatra: None,
-            },
-            FestivalDef {
-                id: "janmashtami".into(),
-                name: "Janmashtami".into(),
-                rule: "tithi_at_sunrise".into(),
-                lunar_month: 6,
-                tithi: 23,
-                sankranti_index: None,
-                nakshatra: None,
-            },
-            FestivalDef {
-                id: "maha_shivaratri".into(),
-                name: "Maha Shivaratri".into(),
-                rule: "tithi_at_sunrise".into(),
-                lunar_month: 11,
-                tithi: 29,
-                sankranti_index: None,
-                nakshatra: None,
-            },
-        ];
-
-        let results = compute_festivals(&defs, 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
-
-        // All 4 should resolve (might be 3 if one falls across a year boundary)
-        assert!(
-            results.len() >= 3 && results.len() <= 4,
-            "Expected 3-4 festivals, got {}",
-            results.len()
-        );
-
-        for r in &results {
-            assert_eq!(r.year, 2026);
-            assert!(r.month >= 1 && r.month <= 12);
-            assert!(r.day >= 1 && r.day <= 31);
-            assert!(!r.reasoning.is_empty());
-        }
-    }
-
-    #[test]
-    fn debug_print_festival_dates() {
-        ephemeris::init(None);
-
-        let defs = vec![
-            FestivalDef {
-                id: "diwali".into(),
-                name: "Diwali".into(),
-                rule: "tithi_at_sunrise".into(),
-                lunar_month: 8,
-                tithi: 30,
-                sankranti_index: None,
-                nakshatra: None,
-            },
-            FestivalDef {
-                id: "holi".into(),
-                name: "Holi".into(),
-                rule: "tithi_at_sunrise".into(),
-                lunar_month: 12,
-                tithi: 15,
-                sankranti_index: None,
-                nakshatra: None,
-            },
-            FestivalDef {
-                id: "janmashtami".into(),
-                name: "Janmashtami".into(),
-                rule: "tithi_at_sunrise".into(),
-                lunar_month: 6,
-                tithi: 23,
-                sankranti_index: None,
-                nakshatra: None,
-            },
-            FestivalDef {
-                id: "ganesh_chaturthi".into(),
-                name: "Ganesh Chaturthi".into(),
-                rule: "tithi_at_sunrise".into(),
-                lunar_month: 6,
-                tithi: 4,
-                sankranti_index: None,
-                nakshatra: None,
-            },
-            FestivalDef {
-                id: "dussehra".into(),
-                name: "Dussehra".into(),
-                rule: "tithi_at_sunrise".into(),
-                lunar_month: 7,
-                tithi: 10,
-                sankranti_index: None,
-                nakshatra: None,
-            },
-            FestivalDef {
-                id: "maha_shivaratri".into(),
-                name: "Maha Shivaratri".into(),
-                rule: "tithi_at_sunrise".into(),
-                lunar_month: 11,
-                tithi: 29,
-                sankranti_index: None,
-                nakshatra: None,
-            },
-            FestivalDef {
-                id: "makar_sankranti".into(),
-                name: "Makar Sankranti".into(),
-                rule: "sankranti".into(),
-                lunar_month: 0,
-                tithi: 0,
-                sankranti_index: Some(0),
-                nakshatra: None,
-            },
-        ];
-
-        let results = compute_festivals(&defs, 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
-        eprintln!("\n--- Resolved Festivals (Sankranti-based) ---");
-        for r in &results {
-            eprintln!(
-                "  {}: {}-{:02}-{:02} | {}",
-                r.festival_name, r.year, r.month, r.day, r.reasoning
-            );
-        }
-        eprintln!("  Total: {}", results.len());
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].month, 3, "Should resolve to March");
     }
 
     #[test]

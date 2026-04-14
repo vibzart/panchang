@@ -46,6 +46,9 @@ class TestFestivals:
     def test_janmashtami_date(self):
         festivals = calendar.compute_festivals(2026, DELHI)
         jk = next(f for f in festivals if f.id == "janmashtami")
+        # Janmashtami = Shravana Krishna Ashtami (Amant month 5).
+        # Per shloka: मासि तु श्रावणेऽष्टम्यां (Brahma Vaivarta Purana).
+        # Web sources confirm Sep 4, 2026.
         assert jk.date.month in (8, 9), f"Janmashtami month: {jk.date.month}"
 
 
