@@ -32,7 +32,18 @@ def _load_regional_yaml() -> dict:
 def get_festival_defs() -> list[dict]:
     """Get festival definitions as list of dicts for Rust bridge.
 
-    Each dict has: id, name, rule, lunar_month, tithi, sankranti_index, nakshatra.
+    Each dict has:
+        - id, name, rule              (required)
+        - lunar_month, tithi          (for tithi_at_sunrise rule)
+        - sankranti_index             (for sankranti rule / nakshatra anchor)
+        - nakshatra                   (for nakshatra_at_sunrise rule)
+        - priority                    (optional: paraviddha | puurvaviddha | vyapti)
+        - kaala                       (optional: sunrise | aparahna | ... — for vyapti)
+        - adhika_maasa                (optional: nija | adhika | adhika_and_nija | adhika_if_exists)
+
+    Unknown values for the optional observance fields fall through to Rust defaults
+    (paraviddha / sunrise / nija), preserving backward compatibility with YAML
+    entries that don't specify them.
     """
     data = _load_yaml()
     defs = []
@@ -46,6 +57,9 @@ def get_festival_defs() -> list[dict]:
                 "tithi": f.get("tithi", 0),
                 "sankranti_index": f.get("sankranti_index"),
                 "nakshatra": f.get("nakshatra"),
+                "priority": f.get("priority"),
+                "kaala": f.get("kaala"),
+                "adhika_maasa": f.get("adhika_maasa"),
             }
         )
     return defs

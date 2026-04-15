@@ -20,7 +20,9 @@ use crate::constants::{LUNAR_MONTH_NAMES, NAKSHATRA_NAMES, SANKRANTI_RASHI_INDEX
 use crate::ephemeris::{self, Planet};
 use crate::julian;
 use crate::lunar_month::{self, CalendarSystem, LunarMonthInfo};
+use crate::observance::{self, AdhikaMaasa, Kaala, Priority};
 use crate::sankranti::{self, SankrantiInfo};
+use crate::search;
 use crate::sun;
 
 const TITHI_SPAN: f64 = 12.0; // 360° / 30 tithis
@@ -48,6 +50,40 @@ pub struct FestivalDef {
     pub sankranti_index: Option<u32>,
     /// 1-27 nakshatra number (for nakshatra_at_sunrise rule)
     pub nakshatra: Option<u32>,
+    /// Observance priority — paraviddha (default), puurvaviddha, or vyapti.
+    /// Only applies to `tithi_at_sunrise` festivals.
+    pub priority: Priority,
+    /// Kaala window for the `vyapti` priority. Ignored for other priorities.
+    pub kaala: Kaala,
+    /// How to handle the adhika (intercalary) month for this festival.
+    pub adhika_maasa: AdhikaMaasa,
+}
+
+impl FestivalDef {
+    /// Construct a basic `tithi_at_sunrise` festival with default observance
+    /// rules (paraviddha / sunrise / nija). Convenience for tests and simple
+    /// callers; YAML-driven construction fills in all fields explicitly.
+    pub fn new_tithi(id: impl Into<String>, name: impl Into<String>, lunar_month: u32, tithi: u32) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            rule: "tithi_at_sunrise".to_string(),
+            lunar_month,
+            tithi,
+            sankranti_index: None,
+            nakshatra: None,
+            priority: Priority::default(),
+            kaala: Kaala::default(),
+            adhika_maasa: AdhikaMaasa::default(),
+        }
+    }
+
+    /// Apply observance overrides to a tithi festival built with `new_tithi`.
+    pub fn with_observance(mut self, priority: Priority, kaala: Kaala) -> Self {
+        self.priority = priority;
+        self.kaala = kaala;
+        self
+    }
 }
 
 /// Resolved festival occurrence with reasoning.
@@ -62,6 +98,28 @@ pub struct FestivalOccurrence {
     pub tithi_at_sunrise: u32,
     pub lunar_month_name: &'static str,
     pub is_adhik_month: bool,
+    pub reasoning: String,
+    /// Priority rule that produced this date (paraviddha/puurvaviddha/vyapti).
+    pub priority_applied: &'static str,
+    /// Kaala that was checked for vyapti resolution. Empty for non-vyapti rules.
+    pub kaala_applied: &'static str,
+    /// Alternate date that the *opposite* convention would have produced.
+    /// For vyapti/puurvaviddha results, this is the paraviddha day.
+    /// For paraviddha results where a shastric alternate exists, this is the
+    /// earlier-day candidate. `None` when there is no meaningful alternate
+    /// (e.g., tithi at sunrise on exactly one day in the window).
+    pub alternate: Option<AlternateObservance>,
+}
+
+/// A secondary observance date produced by the opposite convention.
+/// Attached to a `FestivalOccurrence` so callers can surface both to the user.
+#[derive(Debug, Clone)]
+pub struct AlternateObservance {
+    pub year: i32,
+    pub month: u32,
+    pub day: u32,
+    pub sunrise_jd: f64,
+    pub priority: &'static str,
     pub reasoning: String,
 }
 
@@ -322,13 +380,19 @@ fn find_tithi_at_sunrise_in_range(
 
 /// Resolve a tithi-at-sunrise festival to a Gregorian date.
 ///
-/// Uses precomputed lunar month boundaries (Amant system) to find the exact
-/// month where the festival should be observed, then scans within that month
-/// for the target tithi at sunrise. This correctly handles early tithis
-/// (like Shukla Pratipada) that can be 25+ days before the Sankranti.
+/// Two-pass algorithm:
 ///
-/// Falls back to the Sankranti-based ±20 day search if the lunar month
-/// approach doesn't find a match (e.g., boundary edge cases).
+/// 1. Find the **natural paraviddha day** using lunar-month-bounded search.
+///    This is the day where the target tithi prevails at sunrise.
+/// 2. Apply the `priority` observance rule to shift (or keep) that day:
+///    - `Paraviddha` → keep the natural day (udayatithi default).
+///    - `Puurvaviddha` → shift one day earlier (where tithi begins).
+///    - `Vyapti(kaala)` → check which of (earlier, natural) has target tithi
+///      present during the specified `kaala` window. Earlier day wins only if
+///      it alone has vyapti; otherwise natural day wins.
+///
+/// The natural-day search falls back to the Sankranti-based ±20 day search
+/// when lunar-month boundaries don't cover the edge case.
 fn resolve_tithi_festival(
     def: &FestivalDef,
     sankrantis: &[SankrantiInfo],
@@ -346,29 +410,18 @@ fn resolve_tithi_festival(
     let sankranti = sankrantis.get(sankranti_idx)?;
     let s_dt = local_date(sankranti.jd, utc_offset);
 
-    // Always use Amant boundaries for festival date resolution.
-    //
-    // Festival definitions use Amant-convention month numbers (Chaitra=1).
-    // Amant month N (Amavasya→Amavasya) contains both N's Shukla + Krishna
-    // Paksha, making it the correct search space for any tithi in month N.
-    //
-    // The calendar_system parameter is accepted for API consistency and
-    // future use (e.g., month labeling in responses). However, festival
-    // DATES are the same in both systems — Drik Panchang and all major
-    // web panchangs compute festival dates identically regardless of
-    // Amant/Purnimant selection. The parameter only affects how the
-    // enclosing month is labeled on the calendar display.
-    let _ = calendar_system; // reserved for future month-label use
+    // Always use Amant boundaries for festival date resolution — Amant month N
+    // (Amavasya→Amavasya) contains both Shukla + Krishna Paksha of month N.
+    // The `calendar_system` parameter only affects month labeling on display.
+    let _ = calendar_system;
     let lunar_months = lunar_month::compute_lunar_months(s_dt.year, CalendarSystem::Amant);
 
-    // Find the NIJA (non-adhik) month matching our target month number
-    let target_month = lunar_months
-        .iter()
-        .find(|m| m.number == def.lunar_month && !m.is_adhik);
+    // ---- Select target lunar month(s) per adhika_maasa policy ----
+    let target_month = select_target_month(&lunar_months, def.lunar_month, def.adhika_maasa);
 
-    if let Some(lm) = target_month {
-        // Search within the exact lunar month boundaries
-        if let Some((sunrise, dt)) = find_tithi_at_sunrise_in_range(
+    // ---- Step 1: find natural (paraviddha) day ----
+    let (natural_sunrise, natural_dt, is_fallback, is_adhik) = if let Some(lm) = target_month {
+        match find_tithi_at_sunrise_in_range(
             def.tithi,
             lm.start_jd,
             lm.end_jd,
@@ -377,70 +430,401 @@ fn resolve_tithi_festival(
             alt,
             utc_offset,
         ) {
-            let reasoning = format!(
-                "{} {} (Tithi {}) prevails at sunrise ({}) on {}-{:02}-{:02}. \
-                 Lunar month {} ({}) boundaries used.",
+            Some((s, d)) => (s, d, false, lm.is_adhik),
+            None => {
+                let (s, d) = find_tithi_at_sunrise_near_sankranti(
+                    def.tithi,
+                    sankranti.jd,
+                    lat,
+                    lng,
+                    alt,
+                    utc_offset,
+                )?;
+                (s, d, true, false)
+            }
+        }
+    } else {
+        // AdhikaMaasa::Adhika but no adhika month this year, or similar — skip.
+        return None;
+    };
+
+    // ---- Step 2: apply observance rule ----
+    apply_observance_rule(
+        def,
+        natural_sunrise,
+        natural_dt,
+        month_name,
+        &s_dt,
+        sankranti,
+        is_fallback,
+        is_adhik,
+        lat,
+        lng,
+        alt,
+        utc_offset,
+    )
+}
+
+/// Pick the lunar month to search within, honoring the `adhika_maasa` policy.
+///
+/// Returns `None` when the policy cannot be satisfied (e.g., `Adhika` requested
+/// but no adhika month exists this year). When policy calls for *both* nija and
+/// adhika observance (`AdhikaAndNija`), this returns the nija month; emitting
+/// two occurrences for that case is a future enhancement and not yet wired.
+fn select_target_month(
+    lunar_months: &[LunarMonthInfo],
+    month_num: u32,
+    policy: AdhikaMaasa,
+) -> Option<&LunarMonthInfo> {
+    let nija = lunar_months
+        .iter()
+        .find(|m| m.number == month_num && !m.is_adhik);
+    let adhika = lunar_months
+        .iter()
+        .find(|m| m.number == month_num && m.is_adhik);
+
+    match policy {
+        AdhikaMaasa::Nija => nija,
+        AdhikaMaasa::Adhika => adhika,
+        AdhikaMaasa::AdhikaIfExists => adhika.or(nija),
+        // AdhikaAndNija: return nija; adhika occurrence would need to be emitted
+        // as a separate result, which is a larger refactor. Flag for follow-up.
+        AdhikaMaasa::AdhikaAndNija => nija,
+    }
+}
+
+/// Dispatch on `def.priority` to produce the final festival occurrence.
+///
+/// `natural_sunrise`/`natural_dt` is the paraviddha candidate (tithi at sunrise).
+/// The other candidate is the day immediately before.
+#[allow(clippy::too_many_arguments)]
+fn apply_observance_rule(
+    def: &FestivalDef,
+    natural_sunrise: f64,
+    natural_dt: julian::DateTimeComponents,
+    month_name: &'static str,
+    s_dt: &julian::DateTimeComponents,
+    sankranti: &SankrantiInfo,
+    is_fallback: bool,
+    is_adhik: bool,
+    lat: f64,
+    lng: f64,
+    alt: f64,
+    utc_offset: i32,
+) -> Option<FestivalOccurrence> {
+    let paraviddha_reason = format_paraviddha_reason(
+        month_name,
+        def.tithi,
+        natural_sunrise,
+        &natural_dt,
+        is_fallback,
+        sankranti,
+        s_dt,
+        utc_offset,
+    );
+
+    match def.priority {
+        Priority::Paraviddha => Some(FestivalOccurrence {
+            festival_id: def.id.clone(),
+            festival_name: def.name.clone(),
+            year: natural_dt.year,
+            month: natural_dt.month,
+            day: natural_dt.day,
+            sunrise_jd: natural_sunrise,
+            tithi_at_sunrise: def.tithi,
+            lunar_month_name: month_name,
+            is_adhik_month: is_adhik,
+            reasoning: paraviddha_reason,
+            priority_applied: Priority::Paraviddha.as_str(),
+            kaala_applied: "",
+            alternate: None,
+        }),
+
+        Priority::Puurvaviddha => {
+            // Shift one day earlier. The earlier day should have the preceding
+            // tithi at sunrise; the target tithi begins during that day.
+            let (earlier_sunrise, earlier_dt) =
+                observance::previous_day_sunrise(natural_sunrise, utc_offset, lat, lng, alt);
+            let earlier_tithi = tithi_at_jd(earlier_sunrise);
+
+            let earlier_reason = format!(
+                "{} {} (Tithi {}) begins during {}-{:02}-{:02} (tithi at its sunrise: {}). \
+                 Puurvaviddha rule: observe on the day the tithi begins, not the day it \
+                 prevails at sunrise. Paraviddha alternate would be {}-{:02}-{:02}.",
                 month_name,
                 tithi_display_name(def.tithi),
                 def.tithi,
-                format_local_time(sunrise, utc_offset),
-                dt.year,
-                dt.month,
-                dt.day,
-                month_name,
-                if lm.is_adhik { "Adhik" } else { "Nija" },
+                earlier_dt.year,
+                earlier_dt.month,
+                earlier_dt.day,
+                tithi_display_name(earlier_tithi),
+                natural_dt.year,
+                natural_dt.month,
+                natural_dt.day,
             );
 
-            return Some(FestivalOccurrence {
+            Some(FestivalOccurrence {
                 festival_id: def.id.clone(),
                 festival_name: def.name.clone(),
-                year: dt.year,
-                month: dt.month,
-                day: dt.day,
-                sunrise_jd: sunrise,
-                tithi_at_sunrise: def.tithi,
+                year: earlier_dt.year,
+                month: earlier_dt.month,
+                day: earlier_dt.day,
+                sunrise_jd: earlier_sunrise,
+                tithi_at_sunrise: earlier_tithi,
                 lunar_month_name: month_name,
-                is_adhik_month: false,
-                reasoning,
-            });
+                is_adhik_month: is_adhik,
+                reasoning: earlier_reason,
+                priority_applied: Priority::Puurvaviddha.as_str(),
+                kaala_applied: "",
+                alternate: Some(AlternateObservance {
+                    year: natural_dt.year,
+                    month: natural_dt.month,
+                    day: natural_dt.day,
+                    sunrise_jd: natural_sunrise,
+                    priority: Priority::Paraviddha.as_str(),
+                    reasoning: paraviddha_reason,
+                }),
+            })
+        }
+
+        Priority::Vyapti => {
+            // Find the day of the pair on which the target tithi is present
+            // during the configured kaala. Prefer the earlier day if it alone
+            // qualifies; otherwise fall back to the later (paraviddha) day.
+            let (earlier_sunrise, earlier_dt) =
+                observance::previous_day_sunrise(natural_sunrise, utc_offset, lat, lng, alt);
+            let (later_sunrise, later_dt) = (natural_sunrise, natural_dt);
+            let (next_sunrise_after_natural, _) =
+                observance::next_day_sunrise(natural_sunrise, utc_offset, lat, lng, alt);
+
+            // Compute sunsets from *actual local noon* (midnight + 0.5), not
+            // a sunrise+0.5 approximation. This matters at high latitudes and
+            // near equinoxes where day/night lengths are asymmetric.
+            let earlier_noon = julian::midnight_jd(
+                earlier_dt.year,
+                earlier_dt.month,
+                earlier_dt.day,
+                utc_offset,
+            ) + 0.5;
+            let later_noon = julian::midnight_jd(
+                later_dt.year,
+                later_dt.month,
+                later_dt.day,
+                utc_offset,
+            ) + 0.5;
+            let earlier_sunset = sun::sunset_jd(earlier_noon, lat, lng, alt);
+            let later_sunset = sun::sunset_jd(later_noon, lat, lng, alt);
+
+            let earlier_window = observance::kaala_window(
+                earlier_sunrise,
+                earlier_sunset,
+                later_sunrise,
+                def.kaala,
+            );
+            let later_window = observance::kaala_window(
+                later_sunrise,
+                later_sunset,
+                next_sunrise_after_natural,
+                def.kaala,
+            );
+
+            let earlier_has = tithi_present_in_window(def.tithi, earlier_window);
+            let later_has = tithi_present_in_window(def.tithi, later_window);
+
+            // Decision:
+            // - If ONLY earlier qualifies → pick earlier (classic "tithi during
+            //   kaala on prior day only" case, e.g., Akshaya Tritiya when
+            //   Tritiya ends before later day's aparahna).
+            // - Otherwise → pick later (paraviddha default).
+            let pick_earlier = earlier_has && !later_has;
+
+            let kaala_name = def.kaala.as_str();
+            if pick_earlier {
+                let earlier_reason = format!(
+                    "{} {} (Tithi {}) is present during the {} kaala on {}-{:02}-{:02} \
+                     but NOT during that kaala on {}-{:02}-{:02}. \
+                     Vyapti rule: observe on the earlier day. \
+                     Paraviddha alternate (udayatithi rule): {}-{:02}-{:02}.",
+                    month_name,
+                    tithi_display_name(def.tithi),
+                    def.tithi,
+                    kaala_name,
+                    earlier_dt.year,
+                    earlier_dt.month,
+                    earlier_dt.day,
+                    later_dt.year,
+                    later_dt.month,
+                    later_dt.day,
+                    later_dt.year,
+                    later_dt.month,
+                    later_dt.day,
+                );
+
+                Some(FestivalOccurrence {
+                    festival_id: def.id.clone(),
+                    festival_name: def.name.clone(),
+                    year: earlier_dt.year,
+                    month: earlier_dt.month,
+                    day: earlier_dt.day,
+                    sunrise_jd: earlier_sunrise,
+                    tithi_at_sunrise: tithi_at_jd(earlier_sunrise),
+                    lunar_month_name: month_name,
+                    is_adhik_month: is_adhik,
+                    reasoning: earlier_reason,
+                    priority_applied: Priority::Vyapti.as_str(),
+                    kaala_applied: Kaala::from_label(kaala_name).as_str(),
+                    alternate: Some(AlternateObservance {
+                        year: later_dt.year,
+                        month: later_dt.month,
+                        day: later_dt.day,
+                        sunrise_jd: later_sunrise,
+                        priority: Priority::Paraviddha.as_str(),
+                        reasoning: paraviddha_reason,
+                    }),
+                })
+            } else {
+                // Later day wins. If earlier day also had vyapti we still note
+                // it as an alternate for user transparency.
+                let reason = format!(
+                    "{} {} (Tithi {}) is present during the {} kaala on {}-{:02}-{:02}. \
+                     Vyapti rule: later day ({}) observed per paraviddha fallback.",
+                    month_name,
+                    tithi_display_name(def.tithi),
+                    def.tithi,
+                    kaala_name,
+                    later_dt.year,
+                    later_dt.month,
+                    later_dt.day,
+                    Priority::Paraviddha.as_str(),
+                );
+
+                let alt = if earlier_has {
+                    Some(AlternateObservance {
+                        year: earlier_dt.year,
+                        month: earlier_dt.month,
+                        day: earlier_dt.day,
+                        sunrise_jd: earlier_sunrise,
+                        priority: Priority::Puurvaviddha.as_str(),
+                        reasoning: format!(
+                            "Earlier day also has {} vyapti; some traditions prefer the earlier \
+                             day (puurvaviddha) when both qualify.",
+                            kaala_name
+                        ),
+                    })
+                } else {
+                    None
+                };
+
+                Some(FestivalOccurrence {
+                    festival_id: def.id.clone(),
+                    festival_name: def.name.clone(),
+                    year: later_dt.year,
+                    month: later_dt.month,
+                    day: later_dt.day,
+                    sunrise_jd: later_sunrise,
+                    tithi_at_sunrise: def.tithi,
+                    lunar_month_name: month_name,
+                    is_adhik_month: is_adhik,
+                    reasoning: reason,
+                    priority_applied: Priority::Vyapti.as_str(),
+                    kaala_applied: Kaala::from_label(kaala_name).as_str(),
+                    alternate: alt,
+                })
+            }
         }
     }
+}
 
-    // Fallback: Sankranti-based ±20 day search (handles edge cases where
-    // lunar month computation might not cover the exact year boundaries).
-    let (sunrise, dt) =
-        find_tithi_at_sunrise_near_sankranti(def.tithi, sankranti.jd, lat, lng, alt, utc_offset)?;
+/// Is the target tithi present anywhere in the given JD window?
+///
+/// Production-grade check: finds the exact JD boundaries of the target tithi
+/// near the window (using arcsecond-precision bisection) and tests interval
+/// overlap. This is correct even when the tithi begins or ends inside the
+/// kaala window — a case that a midpoint-only probe would miss.
+///
+/// Algorithm:
+/// 1. Probe the window midpoint for the current tithi.
+/// 2. If the midpoint tithi IS the target → overlap exists; done.
+/// 3. Otherwise, locate the target tithi's interval in the ±2-day neighborhood
+///    by finding the forward crossing into the target tithi (its `start_jd`)
+///    and the forward crossing out of it (its `end_jd`). Check if
+///    `[start_jd, end_jd)` overlaps `[window_start, window_end]`.
+///
+/// A tithi lasts 19-26 hours in practice, so a 2-day search radius from the
+/// window midpoint is always sufficient.
+fn tithi_present_in_window(target_tithi: u32, window: (f64, f64)) -> bool {
+    let (win_start, win_end) = window;
+    let midpoint = (win_start + win_end) / 2.0;
 
-    let reasoning = format!(
-        "{} {} (Tithi {}) prevails at sunrise ({}) on {}-{:02}-{:02}. \
-         Lunar month {} determined by {} ({}) on {}-{:02}-{:02} (fallback).",
-        month_name,
-        tithi_display_name(def.tithi),
-        def.tithi,
-        format_local_time(sunrise, utc_offset),
-        dt.year,
-        dt.month,
-        dt.day,
-        month_name,
-        sankranti.name,
-        sankranti.rashi,
-        s_dt.year,
-        s_dt.month,
-        s_dt.day,
-    );
+    // Fast path: tithi at midpoint.
+    if tithi_at_jd(midpoint) == target_tithi {
+        return true;
+    }
 
-    Some(FestivalOccurrence {
-        festival_id: def.id.clone(),
-        festival_name: def.name.clone(),
-        year: dt.year,
-        month: dt.month,
-        day: dt.day,
-        sunrise_jd: sunrise,
-        tithi_at_sunrise: def.tithi,
-        lunar_month_name: month_name,
-        is_adhik_month: false,
-        reasoning,
-    })
+    // Target tithi starts when the tithi_angle crosses (target-1)*12°.
+    // It ends when the angle crosses target*12°.
+    let start_angle = ((target_tithi - 1) as f64) * TITHI_SPAN;
+    let end_angle = (target_tithi as f64) * TITHI_SPAN;
+    let angle_fn = |jd: f64| tithi_angle(jd);
+
+    // Search backward from win_start for the START of the target tithi,
+    // and forward from win_end for the END.
+    let tithi_start = search::find_crossing_backward(win_start, start_angle, &angle_fn, 2.0)
+        .or_else(|| search::find_crossing_forward(win_start, start_angle, &angle_fn, 2.0));
+    let tithi_end = search::find_crossing_forward(win_start, end_angle, &angle_fn, 2.0);
+
+    match (tithi_start, tithi_end) {
+        (Some(ts), Some(te)) if te > ts => {
+            // Interval overlap: [ts, te] ∩ [win_start, win_end] non-empty?
+            ts < win_end && te > win_start
+        }
+        _ => false,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn format_paraviddha_reason(
+    month_name: &'static str,
+    tithi: u32,
+    sunrise: f64,
+    dt: &julian::DateTimeComponents,
+    is_fallback: bool,
+    sankranti: &SankrantiInfo,
+    s_dt: &julian::DateTimeComponents,
+    utc_offset: i32,
+) -> String {
+    if is_fallback {
+        format!(
+            "{} {} (Tithi {}) prevails at sunrise ({}) on {}-{:02}-{:02}. \
+             Lunar month {} determined by {} ({}) on {}-{:02}-{:02} (fallback).",
+            month_name,
+            tithi_display_name(tithi),
+            tithi,
+            format_local_time(sunrise, utc_offset),
+            dt.year,
+            dt.month,
+            dt.day,
+            month_name,
+            sankranti.name,
+            sankranti.rashi,
+            s_dt.year,
+            s_dt.month,
+            s_dt.day,
+        )
+    } else {
+        format!(
+            "{} {} (Tithi {}) prevails at sunrise ({}) on {}-{:02}-{:02}. \
+             Lunar month {} (Nija) boundaries used.",
+            month_name,
+            tithi_display_name(tithi),
+            tithi,
+            format_local_time(sunrise, utc_offset),
+            dt.year,
+            dt.month,
+            dt.day,
+            month_name,
+        )
+    }
 }
 
 /// Resolve a Sankranti-based festival to a Gregorian date.
@@ -483,6 +867,9 @@ fn resolve_sankranti_festival(
         lunar_month_name: "",
         is_adhik_month: false,
         reasoning,
+        priority_applied: "sankranti",
+        kaala_applied: "",
+        alternate: None,
     })
 }
 
@@ -543,6 +930,9 @@ fn resolve_nakshatra_festival(
         lunar_month_name: "",
         is_adhik_month: false,
         reasoning,
+        priority_applied: "nakshatra_at_sunrise",
+        kaala_applied: "",
+        alternate: None,
     })
 }
 
@@ -915,15 +1305,7 @@ mod tests {
     fn test_engine_resolves_tithi_at_sunrise() {
         ephemeris::init(None);
         // Synthetic: Shukla Purnima (tithi 15) in Phalguna (month 12)
-        let defs = vec![FestivalDef {
-            id: "test_purnima".into(),
-            name: "Test Purnima".into(),
-            rule: "tithi_at_sunrise".into(),
-            lunar_month: 12,
-            tithi: 15,
-            sankranti_index: None,
-            nakshatra: None,
-        }];
+        let defs = vec![FestivalDef::new_tithi("test_purnima", "Test Purnima", 12, 15)];
         let results = compute_festivals(&defs, 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].year, 2026);
@@ -941,8 +1323,11 @@ mod tests {
             rule: "sankranti".into(),
             lunar_month: 0,
             tithi: 0,
-            sankranti_index: Some(0), // Makar
+            sankranti_index: Some(0),
             nakshatra: None,
+            priority: Priority::default(),
+            kaala: Kaala::default(),
+            adhika_maasa: AdhikaMaasa::default(),
         }];
         let results = compute_festivals(&defs, 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
         assert_eq!(results.len(), 1);
@@ -956,24 +1341,8 @@ mod tests {
     fn test_engine_results_sorted_chronologically() {
         ephemeris::init(None);
         let defs = vec![
-            FestivalDef {
-                id: "late".into(),
-                name: "Late Year".into(),
-                rule: "tithi_at_sunrise".into(),
-                lunar_month: 8,
-                tithi: 30,
-                sankranti_index: None,
-                nakshatra: None,
-            },
-            FestivalDef {
-                id: "early".into(),
-                name: "Early Year".into(),
-                rule: "tithi_at_sunrise".into(),
-                lunar_month: 1,
-                tithi: 9,
-                sankranti_index: None,
-                nakshatra: None,
-            },
+            FestivalDef::new_tithi("late", "Late Year", 8, 30),
+            FestivalDef::new_tithi("early", "Early Year", 1, 9),
         ];
         let results = compute_festivals(&defs, 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
         assert_eq!(results.len(), 2);
@@ -992,15 +1361,7 @@ mod tests {
         ephemeris::init(None);
         // Chaitra Shukla Pratipada 2026 is kshaya (never prevails at sunrise).
         // Engine should fall back to the Amavasya day (March 19).
-        let defs = vec![FestivalDef {
-            id: "test_kshaya".into(),
-            name: "Test Kshaya".into(),
-            rule: "tithi_at_sunrise".into(),
-            lunar_month: 1,
-            tithi: 1,
-            sankranti_index: None,
-            nakshatra: None,
-        }];
+        let defs = vec![FestivalDef::new_tithi("test_kshaya", "Test Kshaya", 1, 1)];
         let results = compute_festivals(&defs, 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].month, 3, "Should resolve to March");
@@ -1039,7 +1400,7 @@ mod tests {
             let vaishnava_jd = ek.vaishnava_sunrise_jd;
             let diff = vaishnava_jd - smartha_jd;
             assert!(
-                diff >= -0.1 && diff <= 1.5,
+                (-0.1..=1.5).contains(&diff),
                 "Vaishnava - Smartha diff: {:.2} days for {}",
                 diff,
                 ek.name
@@ -1074,8 +1435,11 @@ mod tests {
             rule: "nakshatra_at_sunrise".into(),
             lunar_month: 0,
             tithi: 0,
-            sankranti_index: Some(7), // Simha Sankranti (~Aug 17)
-            nakshatra: Some(22),      // Shravana (Thiruvonam)
+            sankranti_index: Some(7),
+            nakshatra: Some(22),
+            priority: Priority::default(),
+            kaala: Kaala::default(),
+            adhika_maasa: AdhikaMaasa::default(),
         }];
 
         let results = compute_festivals(&defs, 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
@@ -1106,8 +1470,11 @@ mod tests {
             rule: "nakshatra_at_sunrise".into(),
             lunar_month: 0,
             tithi: 0,
-            sankranti_index: Some(3), // Mesha Sankranti (~Apr 14)
-            nakshatra: Some(5),       // Mrigashira
+            sankranti_index: Some(3),
+            nakshatra: Some(5),
+            priority: Priority::default(),
+            kaala: Kaala::default(),
+            adhika_maasa: AdhikaMaasa::default(),
         }];
 
         let results = compute_festivals(&defs, 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
@@ -1124,33 +1491,9 @@ mod tests {
         ephemeris::init(None);
 
         let defs = vec![
-            FestivalDef {
-                id: "chaitra_navaratri".into(),
-                name: "Chaitra Navaratri".into(),
-                rule: "tithi_at_sunrise".into(),
-                lunar_month: 1, // Chaitra
-                tithi: 1,       // Shukla Pratipada
-                sankranti_index: None,
-                nakshatra: None,
-            },
-            FestivalDef {
-                id: "ugadi".into(),
-                name: "Ugadi".into(),
-                rule: "tithi_at_sunrise".into(),
-                lunar_month: 1, // Chaitra
-                tithi: 1,       // Shukla Pratipada
-                sankranti_index: None,
-                nakshatra: None,
-            },
-            FestivalDef {
-                id: "ram_navami".into(),
-                name: "Ram Navami".into(),
-                rule: "tithi_at_sunrise".into(),
-                lunar_month: 1, // Chaitra
-                tithi: 9,       // Shukla Navami
-                sankranti_index: None,
-                nakshatra: None,
-            },
+            FestivalDef::new_tithi("chaitra_navaratri", "Chaitra Navaratri", 1, 1),
+            FestivalDef::new_tithi("ugadi", "Ugadi", 1, 1),
+            FestivalDef::new_tithi("ram_navami", "Ram Navami", 1, 9),
         ];
 
         let results = compute_festivals(&defs, 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
@@ -1203,33 +1546,9 @@ mod tests {
         ephemeris::init(None);
 
         let defs = vec![
-            FestivalDef {
-                id: "akshaya_tritiya".into(),
-                name: "Akshaya Tritiya".into(),
-                rule: "tithi_at_sunrise".into(),
-                lunar_month: 2, // Vaishakha
-                tithi: 3,       // Shukla Tritiya
-                sankranti_index: None,
-                nakshatra: None,
-            },
-            FestivalDef {
-                id: "dussehra".into(),
-                name: "Dussehra".into(),
-                rule: "tithi_at_sunrise".into(),
-                lunar_month: 7, // Ashwin
-                tithi: 10,      // Shukla Dashami
-                sankranti_index: None,
-                nakshatra: None,
-            },
-            FestivalDef {
-                id: "diwali".into(),
-                name: "Diwali".into(),
-                rule: "tithi_at_sunrise".into(),
-                lunar_month: 8, // Kartik
-                tithi: 30,      // Amavasya
-                sankranti_index: None,
-                nakshatra: None,
-            },
+            FestivalDef::new_tithi("akshaya_tritiya", "Akshaya Tritiya", 2, 3),
+            FestivalDef::new_tithi("dussehra", "Dussehra", 7, 10),
+            FestivalDef::new_tithi("diwali", "Diwali", 8, 30),
         ];
 
         let results = compute_festivals(&defs, 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
@@ -1269,5 +1588,152 @@ mod tests {
             diw.day,
             diw.reasoning
         );
+    }
+
+    // ─── Observance-rule tests ─────────────────────────────────────────────
+
+    /// Backward compatibility: default observance (paraviddha / sunrise / nija)
+    /// reproduces the current behavior for existing festivals.
+    #[test]
+    fn test_default_observance_matches_paraviddha() {
+        ephemeris::init(None);
+        let def_default = FestivalDef::new_tithi("janmashtami", "Janmashtami", 5, 23);
+        let def_explicit = FestivalDef::new_tithi("janmashtami_x", "Janmashtami", 5, 23)
+            .with_observance(Priority::Paraviddha, Kaala::Sunrise);
+
+        let r1 = compute_festivals(&[def_default], 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
+        let r2 = compute_festivals(&[def_explicit], 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
+
+        assert_eq!(r1.len(), 1);
+        assert_eq!(r2.len(), 1);
+        assert_eq!((r1[0].year, r1[0].month, r1[0].day), (r2[0].year, r2[0].month, r2[0].day));
+        assert_eq!(r1[0].priority_applied, "paraviddha");
+        assert_eq!(r1[0].kaala_applied, "");
+    }
+
+    /// Akshaya Tritiya 2026: Vyapti(Aparahna) rule should produce **April 19**
+    /// (Sunday), matching Drik Panchang. The alternate should surface April 20
+    /// (Monday — paraviddha / udayatithi).
+    ///
+    /// Rationale: Tritiya tithi ends during early afternoon on April 20, so
+    /// it is NOT present during Aparahna (late afternoon) on April 20. Tritiya
+    /// IS present during the Aparahna of April 19 — so the vyapti rule picks
+    /// April 19.
+    #[test]
+    fn test_akshaya_tritiya_2026_vyapti_aparahna() {
+        ephemeris::init(None);
+        let def = FestivalDef::new_tithi("akshaya_tritiya", "Akshaya Tritiya", 2, 3)
+            .with_observance(Priority::Vyapti, Kaala::Aparahna);
+
+        let results = compute_festivals(&[def], 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
+        assert_eq!(results.len(), 1);
+        let at = &results[0];
+
+        assert_eq!(
+            (at.year, at.month, at.day),
+            (2026, 4, 19),
+            "AT 2026 should be April 19 (vyapti/aparahna, matches Drik Panchang). Reasoning: {}",
+            at.reasoning
+        );
+        assert_eq!(at.priority_applied, "vyapti");
+        assert_eq!(at.kaala_applied, "aparahna");
+
+        // The paraviddha alternate should be the following day (April 20).
+        let alt = at.alternate.as_ref().expect("vyapti result should expose paraviddha alternate");
+        assert_eq!((alt.year, alt.month, alt.day), (2026, 4, 20));
+        assert_eq!(alt.priority, "paraviddha");
+    }
+
+    /// With Priority::Paraviddha (udayatithi / default), AT 2026 resolves to
+    /// **April 20** (Monday), matching the strict Smriti Kaustubha reading.
+    /// This documents the convention split so downstream code can surface both.
+    #[test]
+    fn test_akshaya_tritiya_2026_paraviddha() {
+        ephemeris::init(None);
+        let def = FestivalDef::new_tithi("akshaya_tritiya", "Akshaya Tritiya", 2, 3);
+
+        let results = compute_festivals(&[def], 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
+        assert_eq!(results.len(), 1);
+        let at = &results[0];
+
+        assert_eq!(
+            (at.year, at.month, at.day),
+            (2026, 4, 20),
+            "AT 2026 paraviddha rule should be April 20. Reasoning: {}",
+            at.reasoning
+        );
+        assert_eq!(at.priority_applied, "paraviddha");
+        // No alternate for the default paraviddha resolution.
+        assert!(at.alternate.is_none());
+    }
+
+    /// Puurvaviddha rule shifts the observance to the day BEFORE the natural
+    /// paraviddha day. Using a synthetic festival so we don't conflict with
+    /// any real festival's shastric rule.
+    #[test]
+    fn test_puurvaviddha_shifts_one_day_earlier() {
+        ephemeris::init(None);
+        let para = FestivalDef::new_tithi("synth_para", "Synth Para", 5, 8);
+        let purva = FestivalDef::new_tithi("synth_purva", "Synth Purva", 5, 8)
+            .with_observance(Priority::Puurvaviddha, Kaala::Sunrise);
+
+        let r1 = compute_festivals(&[para], 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
+        let r2 = compute_festivals(&[purva], 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
+
+        assert_eq!(r1.len(), 1);
+        assert_eq!(r2.len(), 1);
+
+        // purva should be exactly one day before para.
+        let para_jd = r1[0].sunrise_jd;
+        let purva_jd = r2[0].sunrise_jd;
+        let delta_days = para_jd - purva_jd;
+        assert!(
+            (delta_days - 1.0).abs() < 0.05, // within ~1 hour of exactly 1 day
+            "Puurvaviddha should shift 1 day earlier; got {} day delta (para={}-{:02}-{:02}, purva={}-{:02}-{:02})",
+            delta_days,
+            r1[0].year, r1[0].month, r1[0].day,
+            r2[0].year, r2[0].month, r2[0].day,
+        );
+        assert_eq!(r2[0].priority_applied, "puurvaviddha");
+        // Puurvaviddha should always expose the paraviddha alternate.
+        assert!(r2[0].alternate.is_some());
+    }
+
+    /// `adhika_maasa = Adhika` with no adhika month this year returns no result.
+    /// 2026 has no adhika month in Vaishakha, so this should be empty.
+    #[test]
+    fn test_adhika_maasa_policy_adhika_only() {
+        ephemeris::init(None);
+        let mut def = FestivalDef::new_tithi("synth_adhika", "Synth Adhika", 2, 3);
+        def.adhika_maasa = AdhikaMaasa::Adhika;
+
+        let results = compute_festivals(&[def], 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
+        assert!(
+            results.is_empty(),
+            "adhika-only policy should skip non-adhika years; got {} results",
+            results.len()
+        );
+    }
+
+    /// All the Chaitra festivals that were previously broken (April 18 instead
+    /// of March 19) must still resolve to March 19 after observance refactor.
+    #[test]
+    fn test_chaitra_regression_still_march_19() {
+        ephemeris::init(None);
+        let defs = vec![
+            FestivalDef::new_tithi("chaitra_navaratri", "Chaitra Navaratri", 1, 1),
+            FestivalDef::new_tithi("ugadi", "Ugadi", 1, 1),
+            FestivalDef::new_tithi("gudi_padwa", "Gudi Padwa", 1, 1),
+        ];
+        let results = compute_festivals(&defs, 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
+        assert_eq!(results.len(), 3);
+        for r in &results {
+            assert_eq!(r.month, 3, "{} should be in March 2026", r.festival_name);
+            assert!(
+                r.day >= 18 && r.day <= 20,
+                "{} should be ~March 19; got March {}. Reasoning: {}",
+                r.festival_name, r.day, r.reasoning
+            );
+        }
     }
 }

@@ -12,6 +12,7 @@ pub mod ffi;
 pub mod julian;
 pub mod lunar_month;
 pub mod muhurat;
+pub mod observance;
 pub mod panchang;
 pub mod samvat;
 pub mod sankranti;
@@ -416,6 +417,15 @@ fn py_compute_festivals<'py>(
             tithi: extract_u32_or(d, "tithi", 0)?,
             sankranti_index: extract_opt_u32(d, "sankranti_index")?,
             nakshatra: extract_opt_u32(d, "nakshatra")?,
+            priority: extract_opt_str(d, "priority")?
+                .map(|s| observance::Priority::from_label(&s))
+                .unwrap_or_default(),
+            kaala: extract_opt_str(d, "kaala")?
+                .map(|s| observance::Kaala::from_label(&s))
+                .unwrap_or_default(),
+            adhika_maasa: extract_opt_str(d, "adhika_maasa")?
+                .map(|s| observance::AdhikaMaasa::from_label(&s))
+                .unwrap_or_default(),
         });
     }
 
@@ -435,6 +445,20 @@ fn py_compute_festivals<'py>(
             dict.set_item("lunar_month_name", r.lunar_month_name)?;
             dict.set_item("is_adhik_month", r.is_adhik_month)?;
             dict.set_item("reasoning", &r.reasoning)?;
+            dict.set_item("priority_applied", r.priority_applied)?;
+            dict.set_item("kaala_applied", r.kaala_applied)?;
+            if let Some(alt) = &r.alternate {
+                let alt_dict = PyDict::new(py);
+                alt_dict.set_item("year", alt.year)?;
+                alt_dict.set_item("month", alt.month)?;
+                alt_dict.set_item("day", alt.day)?;
+                alt_dict.set_item("sunrise_jd", alt.sunrise_jd)?;
+                alt_dict.set_item("priority", alt.priority)?;
+                alt_dict.set_item("reasoning", &alt.reasoning)?;
+                dict.set_item("alternate", alt_dict)?;
+            } else {
+                dict.set_item("alternate", py.None())?;
+            }
             Ok(dict)
         })
         .collect()
@@ -813,6 +837,20 @@ fn extract_u32_or(d: &Bound<'_, PyDict>, key: &str, default: u32) -> PyResult<u3
 
 /// Extract an optional u32 from a PyDict. Returns None if key missing or value is None.
 fn extract_opt_u32(d: &Bound<'_, PyDict>, key: &str) -> PyResult<Option<u32>> {
+    match d.get_item(key)? {
+        Some(val) => {
+            if val.is_none() {
+                Ok(None)
+            } else {
+                Ok(Some(val.extract()?))
+            }
+        }
+        None => Ok(None),
+    }
+}
+
+/// Extract an optional String from a PyDict. Returns None if key missing or value is None.
+fn extract_opt_str(d: &Bound<'_, PyDict>, key: &str) -> PyResult<Option<String>> {
     match d.get_item(key)? {
         Some(val) => {
             if val.is_none() {

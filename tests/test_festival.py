@@ -51,6 +51,28 @@ class TestFestivals:
         # Web sources confirm Sep 4, 2026.
         assert jk.date.month in (8, 9), f"Janmashtami month: {jk.date.month}"
 
+    def test_akshaya_tritiya_2026_vyapti_aparahna(self):
+        """AT 2026 with YAML-configured vyapti/aparahna rule → April 19.
+
+        This matches Drik Panchang and the popular dana-pradhan convention.
+        The paraviddha alternate (April 20 — strict udayatithi) must be
+        surfaced so callers can present both to users.
+        """
+        festivals = calendar.compute_festivals(2026, DELHI)
+        at = next(f for f in festivals if f.id == "akshaya_tritiya")
+
+        assert at.date.isoformat() == "2026-04-19", (
+            f"AT 2026 should be April 19 (vyapti/aparahna); got {at.date}. "
+            f"Reasoning: {at.reasoning}"
+        )
+        assert at.priority_applied == "vyapti"
+        assert at.kaala_applied == "aparahna"
+
+        # Alternate must be April 20 paraviddha (udayatithi).
+        assert at.alternate is not None, "vyapti result must expose paraviddha alternate"
+        assert at.alternate.date.isoformat() == "2026-04-20"
+        assert at.alternate.priority == "paraviddha"
+
 
 class TestEkadashis:
     def test_ekadashi_count(self):

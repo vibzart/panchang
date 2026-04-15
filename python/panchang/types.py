@@ -373,8 +373,26 @@ class LunarMonthData(BaseModel):
 # --- Festival ---
 
 
+class AlternateObservance(BaseModel):
+    """A secondary observance date produced by the opposite convention.
+
+    When the primary (configured) observance rule differs from a widely-used
+    alternate convention, this field carries the alternate date so callers can
+    surface both to users. Example: if a festival is configured with
+    ``priority=vyapti`` and the vyapti check picks the earlier day, the
+    paraviddha alternate (udayatithi day) is exposed here.
+    """
+
+    date: Date = Field(..., description="Alternate observance date")
+    sunrise: Optional[datetime] = Field(None, description="Sunrise on alternate date")
+    priority: str = Field(
+        ..., description="Priority rule that produced this alternate (e.g. 'paraviddha')"
+    )
+    reasoning: str = Field(..., description="Why this alternate date is valid")
+
+
 class FestivalInfo(BaseModel):
-    """Resolved festival date with reasoning."""
+    """Resolved festival date with reasoning and observance metadata."""
 
     id: str = Field(..., description="Festival identifier (e.g. 'diwali')")
     name: str = Field(..., description="Festival display name")
@@ -384,6 +402,21 @@ class FestivalInfo(BaseModel):
     lunar_month: str = Field(..., description="Lunar month name")
     is_adhik_month: bool = Field(default=False, description="Whether in Adhik month")
     reasoning: str = Field(..., description="Explanation of date determination")
+    priority_applied: str = Field(
+        default="paraviddha",
+        description=(
+            "Observance rule applied — one of: paraviddha, puurvaviddha, "
+            "vyapti, sankranti, nakshatra_at_sunrise."
+        ),
+    )
+    kaala_applied: str = Field(
+        default="",
+        description="Kaala (time-window) checked for vyapti resolution; empty when not applicable",
+    )
+    alternate: Optional[AlternateObservance] = Field(
+        default=None,
+        description="Alternate date produced by the opposing convention, if one exists",
+    )
 
 
 # --- Ekadashi ---

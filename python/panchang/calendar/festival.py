@@ -14,6 +14,7 @@ from panchang.calendar._data import get_ekadashi_defs, get_festival_defs
 from panchang.core.ephemeris import jd_to_datetime
 from panchang.core.sun import _tz_offset_for_date
 from panchang.types import (
+    AlternateObservance,
     CalendarSystem,
     EkadashiInfo,
     FestivalInfo,
@@ -60,6 +61,18 @@ def compute_festivals(
     results = []
     for raw in raw_list:
         sunrise_dt = jd_to_datetime(raw["sunrise_jd"]) if raw["sunrise_jd"] else None
+        alternate = None
+        raw_alt = raw.get("alternate")
+        if raw_alt:
+            alt_sunrise = (
+                jd_to_datetime(raw_alt["sunrise_jd"]) if raw_alt.get("sunrise_jd") else None
+            )
+            alternate = AlternateObservance(
+                date=date(raw_alt["year"], raw_alt["month"], raw_alt["day"]),
+                sunrise=alt_sunrise,
+                priority=raw_alt["priority"],
+                reasoning=raw_alt["reasoning"],
+            )
         results.append(
             FestivalInfo(
                 id=raw["festival_id"],
@@ -70,6 +83,9 @@ def compute_festivals(
                 lunar_month=raw["lunar_month_name"],
                 is_adhik_month=raw["is_adhik_month"],
                 reasoning=raw["reasoning"],
+                priority_applied=raw.get("priority_applied", "paraviddha"),
+                kaala_applied=raw.get("kaala_applied", ""),
+                alternate=alternate,
             )
         )
 

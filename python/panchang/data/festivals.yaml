@@ -232,6 +232,19 @@ festivals:
     tithi: 3             # Shukla Tritiya
     aliases: [Akha Teej]
     regions: [all]
+    # Observance rule: Vyapti during Aparahna (classical dana-pradhan rule).
+    # This matches Drik Panchang and the dominant popular convention. When
+    # Tritiya prevails during the afternoon of the earlier day but not the
+    # later day, the earlier day is observed — the "purvaviddha via aparahna-
+    # vyapti" case. Otherwise, the later day (paraviddha / udayatithi) wins.
+    priority: vyapti
+    kaala: aparahna
+    references:
+      - Smriti Kaustubha p.109-110  # via adyatithi / Pandit Venkatesh
+      - Nirnaya Sindhu (Kamalakara Bhatta)
+      - Dharma Sindhu (Kashinatha Upadhyaya)
+    shloka: |
+      अक्षय्यतृतीया वैशाखशुक्लतृतीयायां निर्णयामृते भविष्ये विष्णुपूजोक्ता।
 
   - id: parashurama_jayanti
     name: Parashurama Jayanti

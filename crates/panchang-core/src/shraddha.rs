@@ -372,6 +372,9 @@ pub fn compute_shraddha_timeline(
         tithi: death_tithi,
         sankranti_index: None,
         nakshatra: None,
+        priority: crate::observance::Priority::Paraviddha,
+        kaala: crate::observance::Kaala::Sunrise,
+        adhika_maasa: crate::observance::AdhikaMaasa::Nija,
     };
     let defs = vec![def];
 
@@ -471,6 +474,9 @@ pub fn compute_shraddha(
         tithi: death_tithi,
         sankranti_index: None,
         nakshatra: None,
+        priority: crate::observance::Priority::Paraviddha,
+        kaala: crate::observance::Kaala::Sunrise,
+        adhika_maasa: crate::observance::AdhikaMaasa::Nija,
     };
 
     let defs = vec![def];

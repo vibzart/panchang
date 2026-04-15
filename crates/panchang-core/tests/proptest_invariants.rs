@@ -123,7 +123,7 @@ proptest! {
         ];
         for planet in &planets {
             let lon = ephemeris::tropical_longitude(jd, *planet);
-            prop_assert!(lon >= 0.0 && lon < 360.0,
+            prop_assert!((0.0..360.0).contains(&lon),
                 "tropical_longitude({:?}, JD={}) = {} out of range", planet, jd, lon);
         }
     }
@@ -137,7 +137,7 @@ proptest! {
         ];
         for planet in &planets {
             let lon = ephemeris::sidereal_longitude(jd, *planet);
-            prop_assert!(lon >= 0.0 && lon < 360.0,
+            prop_assert!((0.0..360.0).contains(&lon),
                 "sidereal_longitude({:?}, JD={}) = {} out of range", planet, jd, lon);
         }
     }
