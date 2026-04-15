@@ -63,7 +63,12 @@ impl FestivalDef {
     /// Construct a basic `tithi_at_sunrise` festival with default observance
     /// rules (paraviddha / sunrise / nija). Convenience for tests and simple
     /// callers; YAML-driven construction fills in all fields explicitly.
-    pub fn new_tithi(id: impl Into<String>, name: impl Into<String>, lunar_month: u32, tithi: u32) -> Self {
+    pub fn new_tithi(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        lunar_month: u32,
+        tithi: u32,
+    ) -> Self {
         Self {
             id: id.into(),
             name: name.into(),
@@ -606,21 +611,13 @@ fn apply_observance_rule(
                 earlier_dt.day,
                 utc_offset,
             ) + 0.5;
-            let later_noon = julian::midnight_jd(
-                later_dt.year,
-                later_dt.month,
-                later_dt.day,
-                utc_offset,
-            ) + 0.5;
+            let later_noon =
+                julian::midnight_jd(later_dt.year, later_dt.month, later_dt.day, utc_offset) + 0.5;
             let earlier_sunset = sun::sunset_jd(earlier_noon, lat, lng, alt);
             let later_sunset = sun::sunset_jd(later_noon, lat, lng, alt);
 
-            let earlier_window = observance::kaala_window(
-                earlier_sunrise,
-                earlier_sunset,
-                later_sunrise,
-                def.kaala,
-            );
+            let earlier_window =
+                observance::kaala_window(earlier_sunrise, earlier_sunset, later_sunrise, def.kaala);
             let later_window = observance::kaala_window(
                 later_sunrise,
                 later_sunset,
@@ -1305,7 +1302,12 @@ mod tests {
     fn test_engine_resolves_tithi_at_sunrise() {
         ephemeris::init(None);
         // Synthetic: Shukla Purnima (tithi 15) in Phalguna (month 12)
-        let defs = vec![FestivalDef::new_tithi("test_purnima", "Test Purnima", 12, 15)];
+        let defs = vec![FestivalDef::new_tithi(
+            "test_purnima",
+            "Test Purnima",
+            12,
+            15,
+        )];
         let results = compute_festivals(&defs, 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].year, 2026);
@@ -1601,12 +1603,31 @@ mod tests {
         let def_explicit = FestivalDef::new_tithi("janmashtami_x", "Janmashtami", 5, 23)
             .with_observance(Priority::Paraviddha, Kaala::Sunrise);
 
-        let r1 = compute_festivals(&[def_default], 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
-        let r2 = compute_festivals(&[def_explicit], 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
+        let r1 = compute_festivals(
+            &[def_default],
+            2026,
+            LAT,
+            LNG,
+            ALT,
+            IST,
+            CalendarSystem::Purnimant,
+        );
+        let r2 = compute_festivals(
+            &[def_explicit],
+            2026,
+            LAT,
+            LNG,
+            ALT,
+            IST,
+            CalendarSystem::Purnimant,
+        );
 
         assert_eq!(r1.len(), 1);
         assert_eq!(r2.len(), 1);
-        assert_eq!((r1[0].year, r1[0].month, r1[0].day), (r2[0].year, r2[0].month, r2[0].day));
+        assert_eq!(
+            (r1[0].year, r1[0].month, r1[0].day),
+            (r2[0].year, r2[0].month, r2[0].day)
+        );
         assert_eq!(r1[0].priority_applied, "paraviddha");
         assert_eq!(r1[0].kaala_applied, "");
     }
@@ -1625,7 +1646,8 @@ mod tests {
         let def = FestivalDef::new_tithi("akshaya_tritiya", "Akshaya Tritiya", 2, 3)
             .with_observance(Priority::Vyapti, Kaala::Aparahna);
 
-        let results = compute_festivals(&[def], 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
+        let results =
+            compute_festivals(&[def], 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
         assert_eq!(results.len(), 1);
         let at = &results[0];
 
@@ -1639,7 +1661,10 @@ mod tests {
         assert_eq!(at.kaala_applied, "aparahna");
 
         // The paraviddha alternate should be the following day (April 20).
-        let alt = at.alternate.as_ref().expect("vyapti result should expose paraviddha alternate");
+        let alt = at
+            .alternate
+            .as_ref()
+            .expect("vyapti result should expose paraviddha alternate");
         assert_eq!((alt.year, alt.month, alt.day), (2026, 4, 20));
         assert_eq!(alt.priority, "paraviddha");
     }
@@ -1652,7 +1677,8 @@ mod tests {
         ephemeris::init(None);
         let def = FestivalDef::new_tithi("akshaya_tritiya", "Akshaya Tritiya", 2, 3);
 
-        let results = compute_festivals(&[def], 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
+        let results =
+            compute_festivals(&[def], 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
         assert_eq!(results.len(), 1);
         let at = &results[0];
 
@@ -1678,7 +1704,15 @@ mod tests {
             .with_observance(Priority::Puurvaviddha, Kaala::Sunrise);
 
         let r1 = compute_festivals(&[para], 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
-        let r2 = compute_festivals(&[purva], 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
+        let r2 = compute_festivals(
+            &[purva],
+            2026,
+            LAT,
+            LNG,
+            ALT,
+            IST,
+            CalendarSystem::Purnimant,
+        );
 
         assert_eq!(r1.len(), 1);
         assert_eq!(r2.len(), 1);
@@ -1707,7 +1741,8 @@ mod tests {
         let mut def = FestivalDef::new_tithi("synth_adhika", "Synth Adhika", 2, 3);
         def.adhika_maasa = AdhikaMaasa::Adhika;
 
-        let results = compute_festivals(&[def], 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
+        let results =
+            compute_festivals(&[def], 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
         assert!(
             results.is_empty(),
             "adhika-only policy should skip non-adhika years; got {} results",
@@ -1732,7 +1767,9 @@ mod tests {
             assert!(
                 r.day >= 18 && r.day <= 20,
                 "{} should be ~March 19; got March {}. Reasoning: {}",
-                r.festival_name, r.day, r.reasoning
+                r.festival_name,
+                r.day,
+                r.reasoning
             );
         }
     }

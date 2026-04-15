@@ -228,7 +228,10 @@ pub fn kaala_window(
         // Nishita: local midnight ± 24 minutes (~4 muhurtas span centered at midnight).
         Kaala::Nishita => {
             let local_midnight = sunset_jd + night / 2.0;
-            (local_midnight - 24.0 / 1440.0, local_midnight + 24.0 / 1440.0)
+            (
+                local_midnight - 24.0 / 1440.0,
+                local_midnight + 24.0 / 1440.0,
+            )
         }
     }
 }
@@ -318,7 +321,13 @@ mod tests {
         assert!((y_end - sunset).abs() < 1e-9);
 
         // Each window is day/5 = 0.1 JD wide.
-        for (start, end) in [(p_start, p_end), (s_start, s_end), (m_start, m_end), (a_start, a_end), (y_start, y_end)] {
+        for (start, end) in [
+            (p_start, p_end),
+            (s_start, s_end),
+            (m_start, m_end),
+            (a_start, a_end),
+            (y_start, y_end),
+        ] {
             assert!(((end - start) - 0.1).abs() < 1e-9);
         }
     }
