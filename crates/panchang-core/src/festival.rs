@@ -992,6 +992,14 @@ pub fn compute_festivals(
 ///
 /// Each Ekadashi has both Smartha and Vaishnava dates.
 /// The Vaishnava date may differ by one day if Dashami persists at Arunodaya.
+///
+/// Iterates Amant lunar-month windows (month N = amavasya(N-1) → amavasya(N))
+/// and resolves each Ekadashi inside its proper lunar-month bounds. Uses
+/// ``find_tithi_at_sunrise_in_range`` which includes a tithi-kshaya fallback
+/// (when Ekadashi never spans sunrise within the month, the Smarta date is
+/// the preceding Dashami day per Dharmasindhu). Without this, months where
+/// Ekadashi is kshaya — e.g. Kartik Shukla 2026 (Prabodhini) — were silently
+/// dropped from the returned list.
 pub fn compute_ekadashis(
     ekadashi_defs: &[EkadashiDef],
     year: i32,
@@ -1002,71 +1010,95 @@ pub fn compute_ekadashis(
 ) -> Vec<EkadashiOccurrence> {
     ephemeris::init(None);
 
-    // Use Sankranti-based search, same approach as compute_festivals.
-    let sankrantis = sankranti::compute_sankrantis(year);
+    // Use Amant boundaries — month N runs from Amavasya N-1 to Amavasya N,
+    // which covers Shukla Paksha (first half) and Krishna Paksha (second half)
+    // of month N. Pull year ± 1 to catch Ekadashis whose lunar month boundary
+    // crosses Dec 31 / Jan 1.
+    let mut lunar_months: Vec<lunar_month::LunarMonthInfo> = Vec::new();
+    for y in [year - 1, year, year + 1] {
+        lunar_months.extend(lunar_month::compute_lunar_months(y, CalendarSystem::Amant));
+    }
+
     let mut results = Vec::new();
 
     for def in ekadashi_defs {
-        // Map lunar month → Sankranti
-        let rashi_idx = (def.month - 1) as usize;
-        let sankranti_idx = match SANKRANTI_RASHI_INDEX.iter().position(|&r| r == rashi_idx) {
-            Some(i) => i,
-            None => continue,
-        };
-        let sankranti = match sankrantis.get(sankranti_idx) {
-            Some(s) => s,
-            None => continue,
-        };
-
         let month_name = LUNAR_MONTH_NAMES[(def.month - 1) as usize];
 
-        // Shukla Ekadashi (tithi 11)
-        if let Some(ek) = resolve_ekadashi(
-            sankranti.jd,
-            def.month,
-            month_name,
-            true,
-            &def.shukla_name,
-            lat,
-            lng,
-            alt,
-            utc_offset,
-        ) {
-            if ek.smartha_year == year {
-                results.push(ek);
+        // Find all Amant lunar months with this number (could be two if adhika).
+        // Resolve Ekadashi in each; results get filtered to `year` below.
+        for lm in &lunar_months {
+            if lm.number != def.month || lm.is_adhik {
+                // Skip adhika months — their Ekadashis are traditionally not
+                // considered separately for most households. Adhika-month
+                // Ekadashi resolution is a future enhancement.
+                continue;
             }
-        }
 
-        // Krishna Ekadashi (tithi 26)
-        if let Some(ek) = resolve_ekadashi(
-            sankranti.jd,
-            def.month,
-            month_name,
-            false,
-            &def.krishna_name,
-            lat,
-            lng,
-            alt,
-            utc_offset,
-        ) {
-            if ek.smartha_year == year {
-                results.push(ek);
+            // Shukla Ekadashi (tithi 11)
+            if let Some(ek) = resolve_ekadashi(
+                lm.start_jd,
+                lm.end_jd,
+                def.month,
+                month_name,
+                true,
+                &def.shukla_name,
+                lat,
+                lng,
+                alt,
+                utc_offset,
+            ) {
+                if ek.smartha_year == year {
+                    results.push(ek);
+                }
+            }
+
+            // Krishna Ekadashi (tithi 26)
+            if let Some(ek) = resolve_ekadashi(
+                lm.start_jd,
+                lm.end_jd,
+                def.month,
+                month_name,
+                false,
+                &def.krishna_name,
+                lat,
+                lng,
+                alt,
+                utc_offset,
+            ) {
+                if ek.smartha_year == year {
+                    results.push(ek);
+                }
             }
         }
     }
 
+    // Dedupe: when pulling year ± 1, the same Ekadashi can be resolved twice
+    // (e.g., via an AMANT month that appears in year-1's and year's slices).
     results.sort_by(|a, b| {
         a.smartha_sunrise_jd
             .partial_cmp(&b.smartha_sunrise_jd)
             .unwrap()
     });
+    results.dedup_by(|a, b| {
+        a.smartha_year == b.smartha_year
+            && a.smartha_month == b.smartha_month
+            && a.smartha_day == b.smartha_day
+            && a.paksha == b.paksha
+            && a.lunar_month == b.lunar_month
+    });
     results
 }
 
-/// Resolve a single Ekadashi using Sankranti-based search.
+/// Resolve a single Ekadashi inside the given lunar-month window.
+///
+/// Uses the in-range search which handles tithi-kshaya by returning the
+/// preceding Dashami day per Smarta convention. Returns ``None`` only if
+/// neither the Ekadashi nor its preceding Dashami fall within the window —
+/// which should not happen for a valid Amant lunar month.
 #[allow(clippy::too_many_arguments)]
 fn resolve_ekadashi(
-    sankranti_jd: f64,
+    month_start_jd: f64,
+    month_end_jd: f64,
     lunar_month_num: u32,
     lunar_month_name: &'static str,
     is_shukla: bool,
@@ -1079,9 +1111,10 @@ fn resolve_ekadashi(
     let target_tithi: u32 = if is_shukla { 11 } else { 26 };
     let dashami_tithi: u32 = target_tithi - 1;
 
-    let (smartha_sunrise, smartha_dt) = find_tithi_at_sunrise_near_sankranti(
+    let (smartha_sunrise, smartha_dt) = find_tithi_at_sunrise_in_range(
         target_tithi,
-        sankranti_jd,
+        month_start_jd,
+        month_end_jd,
         lat,
         lng,
         alt,

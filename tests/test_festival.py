@@ -103,6 +103,36 @@ class TestEkadashis:
         names = [ek.name for ek in ekadashis]
         assert len(names) == len(set(names)), "Duplicate Ekadashi names"
 
+    def test_prabodhini_2026_present(self):
+        """Regression: Prabodhini Ekadashi 2026 falls on Kartik Shukla 11,
+        which is *kshaya* (tithi 11 never spans sunrise in Kartik 2026).
+        Smarta observance is the preceding Dashami day (Nov 20, 2026).
+        Prior sankranti-anchored search silently dropped this entry."""
+        import datetime
+
+        ekadashis = calendar.compute_ekadashis(2026, DELHI)
+        prabodhini = [e for e in ekadashis if e.name == "Prabodhini"]
+        assert prabodhini, "Prabodhini Ekadashi missing from 2026 list"
+        assert prabodhini[0].smartha_date == datetime.date(2026, 11, 20)
+        assert prabodhini[0].lunar_month == 8  # Kartik
+        assert prabodhini[0].paksha == "Shukla"
+
+    def test_lunar_month_labels_are_correct(self):
+        """Regression: the old sankranti-anchored search sometimes labeled
+        Ekadashis with the wrong lunar month (e.g., Jan 29 2026 was returned
+        as 'Pausha Putrada/Pausha' when it is actually 'Jaya/Magha')."""
+        import datetime
+
+        ekadashis = calendar.compute_ekadashis(2026, DELHI)
+        by_date = {e.smartha_date: e for e in ekadashis}
+        # Jan 29 2026 is Magha Shukla Ekadashi (Jaya), not Pausha.
+        if datetime.date(2026, 1, 29) in by_date:
+            e = by_date[datetime.date(2026, 1, 29)]
+            assert e.lunar_month_name == "Magha", (
+                f"Expected Magha, got {e.lunar_month_name}"
+            )
+            assert e.paksha == "Shukla"
+
 
 class TestVratDates:
     def test_vrat_count(self):
