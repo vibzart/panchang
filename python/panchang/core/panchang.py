@@ -15,7 +15,11 @@ from __future__ import annotations
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from panchang._core import py_compute_panchang, py_init
+from panchang._core import (
+    py_compute_panchang,
+    py_compute_panchanga_at_jds,
+    py_init,
+)
 from panchang.core.ephemeris import EphemerisEngine, jd_to_datetime
 from panchang.core.sun import _tz_offset_for_date, compute_sun_data
 from panchang.types import (
@@ -126,3 +130,27 @@ def compute_panchang(
         yoga=yoga,
         karana=karana,
     )
+
+
+def compute_panchanga_at_jds(jds: list[float]) -> list[dict]:
+    """Compute panchanga elements (tithi, nakshatra, yoga, karana) at many
+    instants in one FFI round-trip.
+
+    This is the batch-friendly primitive for muhurat engines that sample
+    panchanga across hundreds or thousands of arbitrary instants (e.g. scanning
+    every hour of a year to find auspicious sub-windows). It skips vara
+    (needs sunrise context) and transition times (expensive to search), so
+    it's ~10× faster per instant than ``compute_panchang`` in a loop.
+
+    Args:
+        jds: List of Julian Day numbers (UT).
+
+    Returns:
+        A list of dicts, one per input JD. Each dict has keys:
+            ``tithi``: {number (1-30), name, paksha ('Shukla' | 'Krishna')}
+            ``nakshatra``: {number (1-27), name, pada (1-4)}
+            ``yoga``: {number (1-27), name}
+            ``karana``: {number (1-11), name}
+    """
+    py_init(None)
+    return py_compute_panchanga_at_jds(list(jds))

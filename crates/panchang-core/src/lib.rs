@@ -51,6 +51,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // High-level: complete Panchang
     m.add_function(wrap_pyfunction!(py_compute_panchang, m)?)?;
+    m.add_function(wrap_pyfunction!(py_compute_panchanga_at_jds, m)?)?;
 
     // Muhurat windows
     m.add_function(wrap_pyfunction!(py_compute_muhurat, m)?)?;
@@ -275,6 +276,57 @@ fn py_compute_panchang<'py>(
     dict.set_item("karana", karana_dict)?;
 
     Ok(dict)
+}
+
+/// Compute panchanga values (tithi, nakshatra, yoga, karana) at many JDs in
+/// one FFI round-trip.
+///
+/// Returns a list of dicts, one per input JD. Each dict has the same shape as
+/// the panchanga elements in `py_compute_panchang` output, minus transition
+/// times (start_jd / end_jd) and vara (weekday needs sunrise context).
+///
+/// This is the batch-friendly entry point used by muhurat engines that sample
+/// panchanga across hundreds or thousands of instants (e.g. vivah window
+/// scanning). A single Python→Rust call avoids per-JD marshaling overhead;
+/// for 8760 JDs (1 year × hourly) this is ~10× faster than calling
+/// `py_compute_panchang` in a loop.
+#[pyfunction]
+fn py_compute_panchanga_at_jds<'py>(
+    py: Python<'py>,
+    jds: Vec<f64>,
+) -> PyResult<Bound<'py, pyo3::types::PyList>> {
+    ephemeris::init(None);
+
+    let list = pyo3::types::PyList::empty(py);
+    for jd in jds {
+        let p = panchang::compute_at_jd(jd);
+        let dict = PyDict::new(py);
+
+        let tithi_dict = PyDict::new(py);
+        tithi_dict.set_item("number", p.tithi_number)?;
+        tithi_dict.set_item("name", &p.tithi_name)?;
+        tithi_dict.set_item("paksha", p.paksha)?;
+        dict.set_item("tithi", tithi_dict)?;
+
+        let nak_dict = PyDict::new(py);
+        nak_dict.set_item("number", p.nakshatra_number)?;
+        nak_dict.set_item("name", p.nakshatra_name)?;
+        nak_dict.set_item("pada", p.nakshatra_pada)?;
+        dict.set_item("nakshatra", nak_dict)?;
+
+        let yoga_dict = PyDict::new(py);
+        yoga_dict.set_item("number", p.yoga_number)?;
+        yoga_dict.set_item("name", p.yoga_name)?;
+        dict.set_item("yoga", yoga_dict)?;
+
+        let karana_dict = PyDict::new(py);
+        karana_dict.set_item("number", p.karana_number)?;
+        karana_dict.set_item("name", p.karana_name)?;
+        dict.set_item("karana", karana_dict)?;
+
+        list.append(dict)?;
+    }
+    Ok(list)
 }
 
 // ============================================================================

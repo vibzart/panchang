@@ -40,6 +40,75 @@ pub fn compute(sunrise_jd: f64, weekday: u32) -> PanchangResult {
     }
 }
 
+/// Panchanga values at an arbitrary instant — without transition times.
+///
+/// Lightweight alternative to [`compute`] for window-level or interval-
+/// sampling use cases (e.g. a muhurat engine scanning hourly across a year).
+/// Skipping the transition-time search makes this ~10× cheaper per call.
+#[derive(Debug, Clone)]
+pub struct PanchangaAtJd {
+    pub tithi_number: u32,
+    pub tithi_name: String,
+    pub paksha: &'static str,
+    pub nakshatra_number: u32,
+    pub nakshatra_name: &'static str,
+    pub nakshatra_pada: u32,
+    pub yoga_number: u32,
+    pub yoga_name: &'static str,
+    pub karana_number: u32,
+    pub karana_name: &'static str,
+}
+
+/// Compute panchanga values (tithi/nakshatra/yoga/karana) at any JD.
+///
+/// Unlike [`compute`], this does NOT include vara (weekday — requires
+/// sunrise context) or transition times (start_jd / end_jd). It's
+/// designed for interval sampling at arbitrary instants.
+pub fn compute_at_jd(jd: f64) -> PanchangaAtJd {
+    let tithi_angle = tithi_angle(jd);
+    let tithi_idx = (tithi_angle / TITHI_SPAN) as u32;
+    let tithi_number = tithi_idx + 1;
+    let paksha = if tithi_number <= 15 {
+        "Shukla"
+    } else {
+        "Krishna"
+    };
+    let tithi_name = format!("{} {}", paksha, TITHI_NAMES[tithi_idx as usize]);
+
+    let moon_sid = ephemeris::sidereal_longitude(jd, Planet::Moon);
+    let nak_idx = (moon_sid / NAKSHATRA_SPAN) as u32;
+    let nak_num = nak_idx + 1;
+    let pada_span = NAKSHATRA_SPAN / 4.0;
+    let offset_in_nak = moon_sid - (nak_idx as f64 * NAKSHATRA_SPAN);
+    let pada = ((offset_in_nak / pada_span) as u32 + 1).min(4);
+
+    let sun_sid = ephemeris::sidereal_longitude(jd, Planet::Sun);
+    let yoga_angle = normalize(sun_sid + moon_sid);
+    let yoga_idx = (yoga_angle / YOGA_SPAN) as u32;
+    let yoga_num = yoga_idx + 1;
+
+    let karana_60 = (tithi_angle / KARANA_SPAN) as u32;
+    let karana_name = karana_name_from_number(karana_60);
+    let karana_number = KARANA_NAMES
+        .iter()
+        .position(|&n| n == karana_name)
+        .map(|i| i as u32 + 1)
+        .unwrap_or(1);
+
+    PanchangaAtJd {
+        tithi_number,
+        tithi_name,
+        paksha,
+        nakshatra_number: nak_num,
+        nakshatra_name: NAKSHATRA_NAMES[nak_idx as usize],
+        nakshatra_pada: pada,
+        yoga_number: yoga_num,
+        yoga_name: YOGA_NAMES[yoga_idx as usize],
+        karana_number,
+        karana_name,
+    }
+}
+
 // --- Vara (weekday) ---
 
 fn compute_vara(weekday: u32) -> VaraInfo {

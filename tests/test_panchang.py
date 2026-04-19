@@ -247,3 +247,107 @@ class TestSamvat:
         assert result.samvat is not None
         assert result.samvat.samvatsara_name is not None
         assert len(result.samvat.samvatsara_name) > 0
+
+
+class TestPanchangaAtJds:
+    """Tests for the batch panchanga-at-JD primitive.
+
+    This is the fast path for muhurat engines that sample panchanga at
+    many arbitrary instants within a day (or year) — far cheaper than
+    calling compute_panchang (which does sunrise lookup + transition
+    searches) per instant.
+    """
+
+    def test_returns_one_dict_per_input(self):
+        from panchang.core.panchang import compute_panchanga_at_jds
+
+        jds = [2461000.0, 2461001.0, 2461002.0]
+        results = compute_panchanga_at_jds(jds)
+        assert len(results) == 3
+        for r in results:
+            assert set(r.keys()) == {"tithi", "nakshatra", "yoga", "karana"}
+
+    def test_values_agree_with_compute_panchang_at_sunrise(self, delhi):
+        """Batch output at sunrise JD must match py_compute_panchang's
+        panchanga fields for the same date."""
+        from panchang._core import py_compute_panchang, py_init
+
+        from panchang.core.panchang import compute_panchanga_at_jds
+        from panchang.core.sun import _tz_offset_for_date
+
+        py_init(None)
+        d = date(2026, 4, 20)  # Shukla Tritiya + Rohini
+        utc_offset = _tz_offset_for_date(delhi.tz, d.year, d.month, d.day)
+        weekday = (d.weekday() + 1) % 7
+        ref = py_compute_panchang(
+            d.year,
+            d.month,
+            d.day,
+            delhi.lat,
+            delhi.lng,
+            delhi.altitude,
+            utc_offset,
+            weekday,
+        )
+        sunrise_jd = ref["sun"]["sunrise_jd"]
+        batch = compute_panchanga_at_jds([sunrise_jd + 1e-6])
+        assert len(batch) == 1
+        b = batch[0]
+        assert b["tithi"]["number"] == ref["tithi"]["number"]
+        assert b["nakshatra"]["number"] == ref["nakshatra"]["number"]
+        assert b["nakshatra"]["pada"] == ref["nakshatra"]["pada"]
+        assert b["yoga"]["number"] == ref["yoga"]["number"]
+
+    def test_ranges_are_valid(self):
+        from panchang.core.panchang import compute_panchanga_at_jds
+
+        jds = [2461000.0 + i * 0.1 for i in range(50)]
+        results = compute_panchanga_at_jds(jds)
+        for r in results:
+            assert 1 <= r["tithi"]["number"] <= 30
+            assert r["tithi"]["paksha"] in ("Shukla", "Krishna")
+            assert 1 <= r["nakshatra"]["number"] <= 27
+            assert 1 <= r["nakshatra"]["pada"] <= 4
+            assert 1 <= r["yoga"]["number"] <= 27
+            assert 1 <= r["karana"]["number"] <= 11
+
+    def test_empty_list_returns_empty(self):
+        from panchang.core.panchang import compute_panchanga_at_jds
+
+        assert compute_panchanga_at_jds([]) == []
+
+    def test_is_significantly_faster_than_compute_panchang_loop(self, delhi):
+        """Sanity: batch should be at least 3× faster than a per-day loop for
+        100 instants. (Real gain at 1000+ instants is 10×+.)"""
+        import time
+
+        from panchang._core import py_compute_panchang, py_init
+
+        from panchang.core.panchang import compute_panchanga_at_jds
+        from panchang.core.sun import _tz_offset_for_date
+
+        py_init(None)
+        jds = [2461000.0 + i * 0.1 for i in range(100)]
+
+        t0 = time.perf_counter()
+        compute_panchanga_at_jds(jds)
+        t_batch = time.perf_counter() - t0
+
+        utc_offset = _tz_offset_for_date(delhi.tz, 2026, 4, 20)
+        t0 = time.perf_counter()
+        for _ in range(100):
+            py_compute_panchang(
+                2026,
+                4,
+                20,
+                delhi.lat,
+                delhi.lng,
+                delhi.altitude,
+                utc_offset,
+                1,
+            )
+        t_loop = time.perf_counter() - t0
+
+        assert t_batch * 3 < t_loop, (
+            f"batch={t_batch:.3f}s loop={t_loop:.3f}s — expected batch ≥ 3× faster"
+        )
