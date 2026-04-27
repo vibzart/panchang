@@ -21,6 +21,24 @@ pub const SE_MEAN_NODE: c_int = 10; // Mean Rahu (north lunar node)
 /// for Panchang (sub-second timing error in Tithi transitions).
 pub const SEFLG_MOSEPH: c_int = 4;
 pub const SEFLG_SPEED: c_int = 256;
+/// Sidereal-mode flag for house calculations (`swe_houses_ex`). When set, the
+/// house cusps and ascendant are returned in the configured ayanamsa frame
+/// (Lahiri, in our case). Value matches `SEFLG_SIDEREAL` in `swephexp.h`
+/// (bit 16 = `64 * 1024`).
+pub const SEFLG_SIDEREAL: c_int = 64 * 1024;
+
+// --- House system letters (passed to swe_houses / swe_houses_ex as `int hsys`,
+// which the C code interprets as an ASCII byte). ---
+//
+/// Placidus — the most common modern Vedic Bhāva Chalit system.
+pub const SE_HSYS_PLACIDUS: c_int = b'P' as c_int;
+/// Whole-sign houses — each sign is a full bhāva, traditional Vedic D-1 layout.
+pub const SE_HSYS_WHOLE_SIGN: c_int = b'W' as c_int;
+/// Equal house from ascendant (12 × 30°).
+pub const SE_HSYS_EQUAL: c_int = b'E' as c_int;
+/// Porphyry / Sripati — equal-arc trisection between angles. The pure
+/// "Sripati Bhāva" system used by classical Jyotish.
+pub const SE_HSYS_PORPHYRY: c_int = b'O' as c_int;
 
 // --- Sidereal modes ---
 pub const SE_SIDM_LAHIRI: c_int = 1;
@@ -107,4 +125,31 @@ extern "C" {
         jday: *mut c_int,
         jut: *mut c_double,
     );
+
+    /// Compute house cusps + ascendant / MC at a given Julian Day (UT).
+    ///
+    /// `iflag` accepts `SEFLG_SIDEREAL` to receive sidereal cusps (the active
+    /// ayanamsa configured via `swe_set_sid_mode` is applied).
+    ///
+    /// `hsys` is an ASCII letter selecting the house system (e.g. 'P' for
+    /// Placidus, 'W' for Whole-Sign, 'O' for Porphyry/Sripati).
+    ///
+    /// On return:
+    ///   - `cusps[1..=12]` = house cusps in degrees (index 0 unused)
+    ///   - `ascmc[0]`      = ascendant
+    ///   - `ascmc[1]`      = midheaven (MC)
+    ///   - `ascmc[2]`      = ARMC
+    ///   - `ascmc[3]`      = vertex
+    ///   - `ascmc[4..=7]`  = additional auxiliary points
+    ///
+    /// Returns OK (0) on success, ERR (-1) on error.
+    pub fn swe_houses_ex(
+        tjd_ut: c_double,
+        iflag: c_int,
+        geolat: c_double,
+        geolon: c_double,
+        hsys: c_int,
+        cusps: *mut c_double,
+        ascmc: *mut c_double,
+    ) -> c_int;
 }

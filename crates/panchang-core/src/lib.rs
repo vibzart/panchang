@@ -10,6 +10,7 @@ pub mod ephemeris;
 pub mod festival;
 pub mod ffi;
 pub mod julian;
+pub mod lagna;
 pub mod lunar_month;
 pub mod muhurat;
 pub mod observance;
@@ -48,6 +49,10 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_sunrise_jd, m)?)?;
     m.add_function(wrap_pyfunction!(py_sunset_jd, m)?)?;
     m.add_function(wrap_pyfunction!(py_compute_sun_data, m)?)?;
+
+    // Lagna (sidereal ascendant + house cusps) — Khona / Kundali
+    m.add_function(wrap_pyfunction!(py_compute_lagna, m)?)?;
+    m.add_function(wrap_pyfunction!(py_compute_lagna_windows, m)?)?;
 
     // High-level: complete Panchang
     m.add_function(wrap_pyfunction!(py_compute_panchang, m)?)?;
@@ -197,6 +202,92 @@ fn py_compute_sun_data<'py>(
     dict.set_item("sunset_jd", data.sunset_jd)?;
     dict.set_item("day_duration_hours", data.day_duration_hours)?;
     Ok(dict)
+}
+
+// ============================================================================
+// Lagna (sidereal ascendant + bhāva cusps)
+// ============================================================================
+
+/// Compute the sidereal Lagna and 12 bhāva cusps.
+///
+/// Returns a dict with:
+///   ascendant_longitude  — full sidereal degrees in [0, 360)
+///   rashi                — 0..=11 (0 = Mesha)
+///   rashi_name           — Sanskrit rashi name
+///   degree_in_rashi      — degrees within the rashi, [0, 30)
+///   mc_longitude         — sidereal Midheaven longitude
+///   bhava_cusps          — 12-element list of sidereal cusp degrees
+///   house_system         — letter passed in (`P` / `W` / `E` / `O`)
+///
+/// `system`: one-character string. `"P"` = Placidus (default), `"W"` =
+/// Whole-sign, `"E"` = Equal house, `"O"` = Porphyry/Sripati.
+#[pyfunction]
+#[pyo3(signature = (jd, lat, lng, system="P"))]
+fn py_compute_lagna<'py>(
+    py: Python<'py>,
+    jd: f64,
+    lat: f64,
+    lng: f64,
+    system: &str,
+) -> PyResult<Bound<'py, PyDict>> {
+    let house_system = match system.chars().next().map(|c| c.to_ascii_uppercase()) {
+        Some('P') => lagna::HouseSystem::Placidus,
+        Some('W') => lagna::HouseSystem::WholeSign,
+        Some('E') => lagna::HouseSystem::Equal,
+        Some('O') => lagna::HouseSystem::Porphyry,
+        _ => {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "Unsupported house system '{system}'. Use one of: P, W, E, O"
+            )));
+        }
+    };
+
+    let info = lagna::compute(jd, lat, lng, house_system);
+
+    let dict = PyDict::new(py);
+    dict.set_item("ascendant_longitude", info.ascendant_longitude)?;
+    dict.set_item("rashi", info.rashi)?;
+    dict.set_item("rashi_name", info.rashi_name)?;
+    dict.set_item("degree_in_rashi", info.degree_in_rashi)?;
+    dict.set_item("mc_longitude", info.mc_longitude)?;
+    dict.set_item("bhava_cusps", info.bhava_cusps.to_vec())?;
+    dict.set_item("ayanamsa", info.ayanamsa)?;
+    dict.set_item(
+        "house_system",
+        match info.house_system {
+            lagna::HouseSystem::Placidus => "P",
+            lagna::HouseSystem::WholeSign => "W",
+            lagna::HouseSystem::Equal => "E",
+            lagna::HouseSystem::Porphyry => "O",
+        },
+    )?;
+    Ok(dict)
+}
+
+/// Compute the 12 Lagna-rising windows over a 24-hour span.
+///
+/// Returns a list of dicts: `{rashi, rashi_name, start_jd, end_jd}`,
+/// sorted by `start_jd`. Used by the Khona intake flow when birth
+/// time is approximate.
+#[pyfunction]
+fn py_compute_lagna_windows<'py>(
+    py: Python<'py>,
+    jd_start: f64,
+    lat: f64,
+    lng: f64,
+) -> PyResult<Vec<Bound<'py, PyDict>>> {
+    let windows = lagna::compute_windows(jd_start, lat, lng);
+    windows
+        .iter()
+        .map(|w| {
+            let d = PyDict::new(py);
+            d.set_item("rashi", w.rashi)?;
+            d.set_item("rashi_name", w.rashi_name)?;
+            d.set_item("start_jd", w.start_jd)?;
+            d.set_item("end_jd", w.end_jd)?;
+            Ok(d)
+        })
+        .collect()
 }
 
 // ============================================================================

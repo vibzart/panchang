@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "panchang"
-version = "0.2.10"
+version = "0.2.11"
 description = "Bhāratīya calendar infrastructure — Panchang, festivals, muhurat, and regional calendars"
 readme = "README.md"
 license = {text = "MIT"}
