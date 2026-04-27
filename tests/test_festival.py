@@ -70,9 +70,7 @@ class TestFestivals:
 
 class TestEkadashis:
     def test_ekadashi_count(self, ekadashis_2026_delhi):
-        assert 20 <= len(ekadashis_2026_delhi) <= 26, (
-            f"Got {len(ekadashis_2026_delhi)} Ekadashis"
-        )
+        assert 20 <= len(ekadashis_2026_delhi) <= 26, f"Got {len(ekadashis_2026_delhi)} Ekadashis"
 
     def test_both_pakshas(self, ekadashis_2026_delhi):
         shukla = [e for e in ekadashis_2026_delhi if e.paksha == "Shukla"]
