@@ -243,8 +243,9 @@ festivals:
       - Smriti Kaustubha p.109-110  # via adyatithi / Pandit Venkatesh
       - Nirnaya Sindhu (Kamalakara Bhatta)
       - Dharma Sindhu (Kashinatha Upadhyaya)
-    shloka: |
-      अक्षय्यतृतीया वैशाखशुक्लतृतीयायां निर्णयामृते भविष्ये विष्णुपूजोक्ता।
+    # Shloka + presiding deity + Kadambini verse refs live in lilavati's
+    # festival_metadata.yaml — the shastric/curated layer is a premium
+    # concern, panchang stays a calendar primitive.
 
   - id: parashurama_jayanti
     name: Parashurama Jayanti
