@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date
 
 from panchang._core import py_compute_sankrantis, py_init
+from panchang.core.sun import _tz_offset_for_date
 from panchang.types import Location, SankrantiData
 
 
@@ -16,13 +17,16 @@ def compute_sankrantis(year: int, location: Location) -> list[SankrantiData]:
 
     Args:
         year: Gregorian year.
-        location: Geographic location (used only for timezone).
+        location: Geographic location — its timezone localizes the
+            reported civil dates (a sankranti near local midnight falls
+            on a different date in IST than in UTC).
 
     Returns:
         List of 12 SankrantiData, sorted chronologically.
     """
     py_init(None)
-    raw_list = py_compute_sankrantis(year)
+    utc_offset = _tz_offset_for_date(location.tz, year, 6, 15)
+    raw_list = py_compute_sankrantis(year, utc_offset)
 
     results = []
     for raw in raw_list:

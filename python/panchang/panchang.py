@@ -7,9 +7,9 @@ Usage:
     delhi = Location(lat=28.6139, lng=77.2090, tz="Asia/Kolkata")
     today = panchang.compute(date.today(), delhi)
 
-    print(today.tithi.name)
+    print(today.tithi.paksha, today.tithi.name)
     print(today.nakshatra.name)
-    print(today.sunrise)
+    print(today.sun.sunrise)
 """
 
 from __future__ import annotations
@@ -78,7 +78,7 @@ def compute(
 
     # Saṃvatsara — era years + 60-year Jovian cycle name
     try:
-        result.samvat = _compute_samvat(dt)
+        result.samvat = _compute_samvat(dt, result.masa)
     except Exception:
         pass
 
@@ -132,13 +132,19 @@ def _compute_masa(
     return None
 
 
-def _compute_samvat(dt: datetime) -> SamvatInfo:
+def _compute_samvat(dt: datetime, masa=None) -> SamvatInfo:
     """Compute era years and 60-year Jovian cycle name."""
     year = dt.year
 
-    # Approximate: Chaitra Shukla Pratipada usually falls in March-April.
-    # Before April → previous year's samvat for Vikram; after → current.
-    new_year_passed = dt.month >= 4
+    # The era year rolls over at Chaitra Shukla Pratipada (March-April).
+    # When the lunar month is known, use it: early in the Gregorian year
+    # a Pausha/Magha/Phalguna (10-12) date precedes the rollover; the same
+    # months in Nov-Dec come AFTER it. Fall back to the month>=4
+    # approximation only when masa is unavailable.
+    if masa is not None:
+        new_year_passed = not (masa.number >= 10 and dt.month <= 4)
+    else:
+        new_year_passed = dt.month >= 4
 
     vikram = py_era_year(year, 57, new_year_passed)
     shaka = py_era_year(year, -78, new_year_passed)

@@ -17,10 +17,10 @@ delhi = Location(lat=28.6139, lng=77.2090, tz="Asia/Kolkata")
 
 # Daily Panchang
 today = panchang.compute(date.today(), delhi)
-print(today.tithi.name)        # "Shukla Dvitiya"
+print(today.tithi.paksha, today.tithi.name)  # "Shukla Dvitiya"
 print(today.nakshatra.name)    # "Pushya"
 print(today.nakshatra.pada)    # 3
-print(today.sunrise)           # 2026-03-03 06:42:18+05:30
+print(today.sun.sunrise)       # 2026-03-03 06:42:18+05:30
 
 # Festival dates
 festivals = calendar.compute_festivals(2026, delhi)
@@ -63,7 +63,7 @@ All 5 Panchanga elements with precise transition times (start/end to the second)
 - **Tithi-based**: Diwali, Holi, Janmashtami, Ram Navami, Ganesh Chaturthi, Navaratri, ...
 - **Sankranti-based**: Makar Sankranti, Pongal, Vishu, Bihu, ...
 - **Nakshatra-based**: Onam (Thiruvonam)
-- **Ekadashi**: All 24 per year with Smartha and Vaishnava dates
+- **Ekadashi**: All 24 per year with Smartha and Vaishnava dates — 26 in Adhika-maas years (Padmini + Parama, flagged `is_adhik`)
 - **Vrat dates**: Pradosh, Sankashti Chaturthi, Amavasya, Purnima (~60 per year)
 
 Festival definitions are data-driven (YAML, not hardcoded) with year-agnostic astronomical rules. Each resolved date includes a reasoning string explaining the determination.

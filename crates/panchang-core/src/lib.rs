@@ -468,15 +468,25 @@ fn py_compute_choghadiya<'py>(
 // ============================================================================
 
 /// Compute all 12 Sankrantis for a year. Returns list of dicts.
+///
+/// `utc_offset` (seconds east of UTC) localizes the reported civil date —
+/// e.g. Mesha Sankranti 2026 is Apr 13 21:50 UTC = Apr 14 03:20 IST; the
+/// festival engine reports Baisakhi on Apr 14, so the raw sankranti date
+/// must agree.
 #[pyfunction]
-fn py_compute_sankrantis<'py>(py: Python<'py>, year: i32) -> PyResult<Vec<Bound<'py, PyDict>>> {
+#[pyo3(signature = (year, utc_offset=0))]
+fn py_compute_sankrantis<'py>(
+    py: Python<'py>,
+    year: i32,
+    utc_offset: i32,
+) -> PyResult<Vec<Bound<'py, PyDict>>> {
     ephemeris::init(None);
     let results = sankranti::compute_sankrantis(year);
 
     results
         .iter()
         .map(|s| {
-            let dt = julian::jd_to_datetime(s.jd);
+            let dt = julian::jd_to_datetime(s.jd + (utc_offset as f64) / 86400.0);
             let dict = PyDict::new(py);
             dict.set_item("index", s.index)?;
             dict.set_item("name", s.name)?;

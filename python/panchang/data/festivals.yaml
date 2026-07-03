@@ -14,6 +14,20 @@
 #   5=Shravana, 6=Bhadrapada, 7=Ashwin, 8=Kartik, 9=Margashirsha,
 #   10=Pausha, 11=Magha, 12=Phalguna
 #
+# ⚠ Month numbers are AMANT (month = Amavasya→Amavasya). Popular North-Indian
+#   names for Krishna-paksha festivals use the PURNIMANT label, which is one
+#   month AHEAD for that paksha: "Kartik Krishna Chaturthi" (Karva Chauth) is
+#   amant Ashwin (7), NOT Kartik (8). Getting this wrong shifts the festival
+#   a full month (see tests/test_reference_2026.py, BUG-2).
+#
+# Optional observance fields (see calendar/_data.py):
+#   priority:    paraviddha (default) | puurvaviddha | vyapti
+#   kaala:       sunrise | praatah | sangava | madhyahna | aparahna |
+#                saayaahna | poorvahna | pradosha | nishita | full_day
+#   vyapti_tie:  para (default) | purva — tie-break when the tithi covers the
+#                kaala on BOTH candidate days (Vijayadashami uses purva)
+#   adhika_maasa: nija (default) | adhika | adhika_if_exists | adhika_and_nija
+#
 # Sankranti index (calendar-year order):
 #   0=Makar, 1=Kumbha, 2=Meena, 3=Mesha, 4=Vrishabha, 5=Mithuna,
 #   6=Karka, 7=Simha, 8=Kanya, 9=Tula, 10=Vrischika, 11=Dhanu
@@ -421,6 +435,10 @@ festivals:
     # NOTE: North Indian Purnimant tradition calls this "Bhadrapada Krishna
     # Ashtami" because Shravana's Krishna Paksha falls in Purnimant-Bhadrapada.
     # The Amant month is Shravana. Source: Brahma Vaivarta Purana; adyatithi.
+    # Krishna was born at midnight — the day whose nishita holds Ashtami
+    # wins (Smarta convention; e.g. 2027-08-24, not 08-25).
+    priority: vyapti
+    kaala: nishita
 
   # ==========================================================================
   # ASHWIN (Month 7) — Sep-Oct
