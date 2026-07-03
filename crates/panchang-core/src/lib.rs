@@ -197,6 +197,12 @@ fn py_compute_sun_data<'py>(
     utc_offset_seconds: i32,
 ) -> PyResult<Bound<'py, PyDict>> {
     let data = sun::compute_sun_data(year, month, day, lat, lng, alt, utc_offset_seconds);
+    if !data.sunrise_jd.is_finite() || !data.sunset_jd.is_finite() {
+        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "the sun does not rise or set at lat={lat} on {year}-{month:02}-{day:02} \
+             (polar day/night) — panchanga is undefined for this date/location"
+        )));
+    }
     let dict = PyDict::new(py);
     dict.set_item("sunrise_jd", data.sunrise_jd)?;
     dict.set_item("sunset_jd", data.sunset_jd)?;
@@ -312,6 +318,12 @@ fn py_compute_panchang<'py>(
     weekday: u32,
 ) -> PyResult<Bound<'py, PyDict>> {
     let sun_data = sun::compute_sun_data(year, month, day, lat, lng, alt, utc_offset_seconds);
+    if !sun_data.sunrise_jd.is_finite() || !sun_data.sunset_jd.is_finite() {
+        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "the sun does not rise or set at lat={lat} on {year}-{month:02}-{day:02} \
+             (polar day/night) — panchanga is undefined for this date/location"
+        )));
+    }
     let mut result = panchang::compute(sun_data.sunrise_jd, weekday);
     result.sun = sun_data;
 

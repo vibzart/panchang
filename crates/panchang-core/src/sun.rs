@@ -18,7 +18,7 @@ pub fn sunrise_jd(jd_start: f64, lat: f64, lng: f64, alt: f64) -> f64 {
     let mut tret = [0.0f64; 10];
     let mut serr = [0i8; ffi::SE_ERR_LEN];
 
-    unsafe {
+    let rc = unsafe {
         ffi::swe_rise_trans(
             jd_start,
             ffi::SE_SUN,
@@ -30,7 +30,14 @@ pub fn sunrise_jd(jd_start: f64, lat: f64, lng: f64, alt: f64) -> f64 {
             0.0, // attemp (0 = default)
             tret.as_mut_ptr(),
             serr.as_mut_ptr(),
-        );
+        )
+    };
+    // rc = -2: circumpolar (sun never rises/sets that day); rc < 0: error.
+    // `tret` is left at 0.0 in those cases, which downstream code would
+    // treat as a valid JD in 4713 BCE — return NaN so callers can detect
+    // the condition instead.
+    if rc < 0 {
+        return f64::NAN;
     }
     tret[0]
 }
@@ -43,7 +50,7 @@ pub fn sunset_jd(jd_noon: f64, lat: f64, lng: f64, alt: f64) -> f64 {
     let mut tret = [0.0f64; 10];
     let mut serr = [0i8; ffi::SE_ERR_LEN];
 
-    unsafe {
+    let rc = unsafe {
         ffi::swe_rise_trans(
             jd_noon,
             ffi::SE_SUN,
@@ -55,7 +62,11 @@ pub fn sunset_jd(jd_noon: f64, lat: f64, lng: f64, alt: f64) -> f64 {
             0.0,
             tret.as_mut_ptr(),
             serr.as_mut_ptr(),
-        );
+        )
+    };
+    // See sunrise_jd — NaN signals "no rise/set at this location/date".
+    if rc < 0 {
+        return f64::NAN;
     }
     tret[0]
 }

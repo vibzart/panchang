@@ -248,6 +248,10 @@ fn find_tithi_at_sunrise_near_sankranti(
     for day_offset in 0..40 {
         let midnight = base_midnight + day_offset as f64;
         let sunrise = sun::sunrise_jd(midnight, lat, lng, alt);
+        if !sunrise.is_finite() {
+            // Circumpolar day (polar latitude) — no sunrise to test.
+            continue;
+        }
         let t = tithi_at_jd(sunrise);
         if t == target_tithi {
             let distance = (sunrise - sankranti_jd).abs();
@@ -287,6 +291,10 @@ fn find_nakshatra_at_sunrise_near_sankranti(
     for day_offset in 0..40 {
         let midnight = base_midnight + day_offset as f64;
         let sunrise = sun::sunrise_jd(midnight, lat, lng, alt);
+        if !sunrise.is_finite() {
+            // Circumpolar day (polar latitude) — no sunrise to test.
+            continue;
+        }
         let n = nakshatra_at_jd(sunrise);
         if n == target_nakshatra {
             let distance = (sunrise - sankranti_jd).abs();
@@ -335,6 +343,11 @@ fn find_tithi_at_sunrise_in_range(
 
     while midnight <= end_jd {
         let sunrise = sun::sunrise_jd(midnight, lat, lng, alt);
+        if !sunrise.is_finite() {
+            // Circumpolar day (polar latitude) — no sunrise to test.
+            midnight += 1.0;
+            continue;
+        }
         if sunrise > end_jd {
             break;
         }

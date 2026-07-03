@@ -1,112 +1,96 @@
 # Festival Date Resolution
 
-Hindu festivals are determined by the luni-solar calendar — most fall on a specific Tithi within a specific lunar month. Resolving the Gregorian date requires mapping from (lunar month, tithi) to a calendar date.
+Hindu festivals are determined by the luni-solar calendar — most fall on a specific Tithi within a specific lunar month. Resolving the Gregorian date requires mapping from (lunar month, tithi) to a calendar date, then applying the festival's **observance rule** (which kaala of the day must hold the tithi, and which day wins when the tithi spans two).
 
 ## Resolution Rules
 
 ### 1. TithiAtSunrise Rule
 
-Most Hindu festivals follow this rule: the festival is observed on the day when the target Tithi **prevails at sunrise**.
+Most Hindu festivals follow this rule: the festival's *natural day* is the day when the target Tithi **prevails at sunrise** (udayatithi), optionally shifted by a priority rule (below).
 
 **Why sunrise?** The Hindu day begins at sunrise. If a Tithi spans parts of two calendar days, the day where the Tithi is active at sunrise "owns" that Tithi.
 
 ### 2. Sankranti Rule
 
-Some festivals (Makar Sankranti, Baisakhi) are determined by the Sun entering a specific Rashi, not by Tithi. The festival date is simply the date of the Sankranti.
+Some festivals (Makar Sankranti, Baisakhi) are determined by the Sun entering a specific Rashi, not by Tithi. The festival date is the local civil date of the Sankranti.
 
-## The Sankranti-Based Search Approach
+### 3. NakshatraAtSunrise Rule
 
-### The Problem with Month Boundaries
+A few festivals (Onam) are determined by a nakshatra prevailing at sunrise near an anchor Sankranti.
 
-The naive approach — find the lunar month boundaries, then search within them for the target Tithi — has edge cases:
+## Month Windows (Amant) + Sankranti Anchor
 
-- In the **Purnimant** system, the month boundary IS the Purnima crossing. Festivals on Purnima (like Holi on Phalguna Purnima) may fall exactly at the boundary, causing resolution failures.
-- **Adhik Maas** detection depends on whether a Sankranti falls within the month, but the month boundaries themselves depend on Amavasya/Purnima detection.
+Month numbers in `festivals.yaml` are **AMANT** (month = Amavasya→Amavasya). Popular North-Indian names for Krishna-paksha festivals use the PURNIMANT label, which is one month ahead for that paksha: "Kartik Krishna Trayodashi" (Dhanteras) is amant **Ashwin** (7), not Kartik (8).
 
-### The Solution
+Resolution steps:
 
-Both Amant and Purnimant systems name months after the **same Sankranti**. Rather than finding month boundaries and searching within them, we:
+1. **Compute the year's Amant month windows once** (shared across all festival definitions).
+2. **Find the naming Sankranti** for the definition's month (a Sankranti always falls inside the month it names). The anchor disambiguates **duplicate month instances**: a month spilling past Dec 31 appears in two consecutive years' window lists, and the instance containing the anchor is the right one (getting this wrong silently dropped Margashirsha festivals in ~half of years).
+3. **Select the target window per the `adhika_maasa` policy** (see below), then search it for the first sunrise holding the target tithi. A sunrise on the window's first civil day that precedes the month-start moment belongs to the previous month and is never an exact match (it would wrongly match the previous Amavasya for tithi-30 festivals), but it is kept as the kshaya fallback day for tithi 1.
+4. **Kshaya fallback**: if the tithi never spans a sunrise in the window, the preceding tithi's first day is used (Dharmasindhu).
+5. **Sankranti-anchored ±20-day search** remains only as a last-resort fallback when the window search fails entirely.
 
-1. Find the Sankranti that names the festival's lunar month
-2. Search **+/-20 days** around that Sankranti for the target Tithi at sunrise
-3. If multiple matches exist (can happen near month boundaries), pick the one **closest** to the Sankranti
+For **display**, the Purnimant system (default) names the Krishna paksha of amant month N as month N+1 — so Dhanteras still reads "Kartik Krishna Trayodashi" while being resolved in the amant Ashwin window.
 
-This approach is:
-- **Calendar-system agnostic**: Works identically for Amant and Purnimant
-- **Boundary-safe**: No edge cases at Amavasya/Purnima crossings
-- **Simple**: No need to compute full lunar month structures for festival resolution
+## Observance Rules (priority / kaala)
 
-### Mapping: Lunar Month to Sankranti
+After the natural (udayatithi) day is found, the definition's `priority` decides the final day:
 
-Each lunar month is named after the Sankranti where the Sun enters the corresponding Rashi:
-- Month 1 (Chaitra) -> Mesha Sankranti (Rashi 0) -> Sankranti index 3
-- Month 8 (Kartik) -> Vrischika Sankranti (Rashi 7) -> Sankranti index 10
+| priority | Behavior |
+|---|---|
+| `paraviddha` (default) | Keep the natural day. |
+| `puurvaviddha` | Shift one day earlier (where the tithi begins). |
+| `vyapti` | Check which of (earlier, natural) day has the tithi **present during the configured `kaala` window**. Earlier day wins if it alone qualifies. If BOTH qualify, the tie-break is `vyapti_tie`: `para` (default — natural day) or `purva` (earlier day). |
 
-The mapping uses `SANKRANTI_RASHI_INDEX`: find `i` where `SANKRANTI_RASHI_INDEX[i] == (month - 1)`.
+`kaala` values: `sunrise`, `praatah`, `sangava`, `madhyahna`, `aparahna`, `saayaahna`, `poorvahna` (panchama-vibhaga day divisions computed from actual sunrise/sunset), `pradosha` (sunset → sunset + 144 min), `nishita` (centered on true midnight of the night), `full_day`.
 
-## Algorithm: TithiAtSunrise
+Examples in the shipped YAML (each verified against Drik Panchang and jyotisha for 2026 + 2027):
 
-### Input
-- Festival definition: `(id, name, lunar_month, tithi)`
-- Year, location (lat, lng, alt, utc_offset)
-- Precomputed Sankrantis for the year
+| Festival | Rule | Why |
+|---|---|---|
+| Maha Shivaratri | `vyapti` / `nishita` | The day whose *night* holds Chaturdashi |
+| Ram Navami, Ganesh Chaturthi | `vyapti` / `madhyahna` | Midday birth/puja |
+| Diwali, Dhanteras, Karva Chauth, Ahoi Ashtami | `vyapti` / `pradosha` | Evening observance |
+| Akshaya Tritiya | `vyapti` / `aparahna` | Dana-pradhan afternoon rule |
+| Dussehra | `vyapti` / `aparahna` / `vyapti_tie: purva` | "dinadvaye aparahna-vyaptau purva" (Nirnaya Sindhu) |
 
-### Steps
-
-1. **Find the naming Sankranti**: Map `lunar_month` to a Rashi index `(lunar_month - 1)`, then find the Sankranti index where `SANKRANTI_RASHI_INDEX[i]` equals that Rashi index.
-
-2. **Compute search window**: Start from 20 days before the Sankranti JD, end 20 days after. Convert to a local midnight JD for day iteration.
-
-3. **Iterate days**: For each of the 40 days in the search window:
-   - Compute sunrise JD using `sun::sunrise_jd(midnight, lat, lng, alt)`
-   - Compute Tithi number at sunrise: `floor(tithi_angle(sunrise) / 12) + 1`
-   - If Tithi matches the target, record (distance_from_sankranti, sunrise_jd, date)
-
-4. **Select best match**: Among all matching days, pick the one closest to the Sankranti JD.
-
-5. **Generate reasoning**: Build a human-readable explanation string, e.g.:
-   > "Kartik Shukla Ashtami (Tithi 8) prevails at sunrise (06:23) on 2026-10-29. Lunar month Kartik determined by Vrischika Sankranti (Vrischika) on 2026-11-16."
-
-### Output
-- `FestivalOccurrence`: date, sunrise JD, tithi at sunrise, lunar month name, reasoning string
-
-## Algorithm: Sankranti Festival
-
-For Sankranti-based festivals:
-
-1. Look up the Sankranti by index from the precomputed array
-2. Convert the Sankranti JD to a local date
-3. Compute sunrise for that date and report the Tithi at sunrise
-4. Generate reasoning describing the Sun's entry into the Rashi
+When a vyapti rule shifts the day, the paraviddha (udayatithi) date is surfaced as `alternate` so callers can present both, and `priority_applied` / `kaala_applied` report which rule actually decided the date.
 
 ## Adhik Maas Handling
 
-Festivals are **not** observed in Adhik (intercalary) months. The Sankranti-based search naturally handles this: since the search anchors to the naming Sankranti (which by definition falls in the Nija month), the closest match will always be in the regular month, not the Adhik month.
+Whether a festival is observed in an Adhika (intercalary) month is policy-driven via the `adhika_maasa` field:
+
+| Value | Behavior |
+|---|---|
+| `nija` (default) | Observe only in the regular month. |
+| `adhika` | Observe only in the adhika month (skip years without one). |
+| `adhika_if_exists` | Prefer the adhika month; fall back to nija. |
+| `adhika_and_nija` | Observe in both (currently resolves the nija instance; emitting both is a planned enhancement). |
+
+Month-recurring **vrats** (Pradosh, Sankashti Chaturthi, Amavasya, Purnima) ARE observed in adhika months and are emitted with an "Adhika" month label. Adhika-month **Ekadashis** (Padmini/Parama) are handled by the ekadashi engine — see [ekadashi.md](ekadashi.md).
 
 ## Festival Definitions in YAML
 
-Festival specifications are stored in `data/festivals.yaml`, not hardcoded in Rust. This enables:
-- Easy addition of new festivals without recompiling
-- Community contributions via pull request
-- Regional variants as separate YAML files
+Festival specifications are stored in `data/festivals.yaml`, not hardcoded in Rust. Each definition:
 
-Each definition specifies:
 ```yaml
 - id: diwali
   name: Diwali
   rule: tithi_at_sunrise
-  lunar_month: 8        # Kartik
-  tithi: 30              # Amavasya
+  lunar_month: 7        # amant Ashwin ("Kartik Amavasya" is the purnimant label)
+  tithi: 30             # Amavasya
+  priority: vyapti
+  kaala: pradosha
 ```
 
-Python loads the YAML at import time and passes structured dicts to Rust via PyO3. The Rust engine receives festival definitions as `Vec<FestivalDef>` — no YAML parsing in Rust.
+Optional fields: `priority`, `kaala`, `vyapti_tie`, `adhika_maasa` (all default to paraviddha / sunrise / para / nija). Python loads the YAML at import time and passes structured dicts to Rust via PyO3 — no YAML parsing in Rust.
 
 ## Reasoning Field
 
-Every resolved festival includes a `reasoning` string explaining the date determination. This serves as:
+Every resolved festival includes a `reasoning` string explaining the date determination — which tithi prevailed when, which kaala/priority rule was applied, and (for vyapti shifts) the paraviddha alternate. This serves as:
 - **Transparency**: Users can verify why a date was chosen
 - **Debugging**: Developers can trace resolution logic
 - **Trust signal**: Shows the computation is grounded in astronomical data, not lookup tables
 
 Example:
-> "Phalguna Shukla Purnima (Tithi 15) prevails at sunrise (06:38) on 2026-03-03. Lunar month Phalguna determined by Meena Sankranti (Meena) on 2026-03-14."
+> "Kartik Krishna Amavasya (Tithi 30) is present during the pradosha kaala on 2026-11-08 but NOT during that kaala on 2026-11-09. Vyapti rule: observe on the earlier day. Paraviddha alternate (udayatithi rule): 2026-11-09."

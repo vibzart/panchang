@@ -209,3 +209,62 @@ class TestSankrantiLocalDates:
         fests = {f.id: f.date for f in festivals_2026_delhi}
         assert sank["Mesha Sankranti"] == fests["baisakhi"]
         assert sank["Makar Sankranti"] == fests["makar_sankranti"]
+
+
+class TestPolarLatitudes:
+    """Circumpolar days: sunrise does not exist — the API must say so
+    clearly instead of computing a panchanga for JD 0 (4713 BCE)."""
+
+    def test_daily_panchang_raises_clean_error(self):
+        from panchang.types import Location
+
+        tromso = Location(lat=69.6492, lng=18.9553, tz="Europe/Oslo")
+        with pytest.raises(ValueError, match="does not rise"):
+            pk.compute(date(2026, 12, 21), tromso)
+
+    def test_batch_skips_circumpolar_days(self):
+        from panchang import batch
+        from panchang.types import Location
+
+        tromso = Location(lat=69.6492, lng=18.9553, tz="Europe/Oslo")
+        # Polar night in Tromsø: ~Nov 27 – Jan 15. The range must not
+        # crash and must not emit nonsense entries for sunless days.
+        days = batch.compute_range(date(2026, 12, 18), date(2026, 12, 26), tromso)
+        assert len(days) < 9
+        for d in days:
+            assert d.sun.sunrise.year == 2026
+
+
+class TestDstOffsets:
+    """Batch ranges crossing a DST transition must use each day's own
+    UTC offset (previously the range-start offset applied throughout)."""
+
+    def test_offset_segments_split_at_transition(self):
+        from panchang.batch import _offset_segments
+
+        # US spring-forward: 2026-03-08.
+        segs = _offset_segments("America/New_York", date(2026, 3, 1), date(2026, 3, 15))
+        assert segs == [
+            (date(2026, 3, 1), date(2026, 3, 7), -18000),
+            (date(2026, 3, 8), date(2026, 3, 15), -14400),
+        ]
+
+    def test_fixed_offset_zone_single_segment(self):
+        from panchang.batch import _offset_segments
+
+        segs = _offset_segments("Asia/Kolkata", date(2026, 1, 1), date(2026, 12, 31))
+        assert segs == [(date(2026, 1, 1), date(2026, 12, 31), 19800)]
+
+    def test_range_across_transition_complete(self):
+        from panchang import batch
+        from panchang.types import Location
+
+        nyc = Location(lat=40.7128, lng=-74.0060, tz="America/New_York")
+        days = batch.compute_range(date(2026, 3, 6), date(2026, 3, 10), nyc)
+        assert [d.date for d in days] == [
+            date(2026, 3, 6),
+            date(2026, 3, 7),
+            date(2026, 3, 8),
+            date(2026, 3, 9),
+            date(2026, 3, 10),
+        ]

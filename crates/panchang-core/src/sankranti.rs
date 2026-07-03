@@ -10,7 +10,7 @@ use crate::constants::{
 };
 use crate::ephemeris::{self, Planet};
 use crate::julian;
-use crate::search::find_crossing_forward;
+use crate::search::{find_crossing_forward_step, BRACKET_STEP_DAY};
 
 /// Result of a Sankranti computation.
 #[derive(Debug, Clone)]
@@ -37,7 +37,15 @@ fn sun_sidereal(jd: f64) -> f64 {
 ///
 /// Uses a 45-day search window (Sun moves ~1°/day, so 30° = ~30 days).
 pub fn find_sankranti(target_longitude: f64, approx_start_jd: f64) -> Option<f64> {
-    find_crossing_forward(approx_start_jd, target_longitude, &sun_sidereal, 45.0)
+    // Sun's sidereal longitude moves ~1°/day — day-sized brackets are safe
+    // and ~24x cheaper than hourly ones.
+    find_crossing_forward_step(
+        approx_start_jd,
+        target_longitude,
+        &sun_sidereal,
+        45.0,
+        BRACKET_STEP_DAY,
+    )
 }
 
 /// Compute all 12 Sankrantis for a given Gregorian year.

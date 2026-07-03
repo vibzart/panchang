@@ -13,7 +13,7 @@ use crate::constants::{LUNAR_MONTH_NAMES, SANKRANTI_RASHI_INDEX, SANKRANTI_TO_LU
 use crate::ephemeris::{self, Planet};
 use crate::julian;
 use crate::sankranti;
-use crate::search::find_crossing_forward;
+use crate::search::{find_crossing_forward_step, BRACKET_STEP_DAY};
 
 /// Calendar system variant.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -65,7 +65,10 @@ pub fn find_amavasyas(year: i32) -> Vec<f64> {
     let mut jd = start_jd;
 
     while jd < end_jd {
-        if let Some(crossing_jd) = find_crossing_forward(jd, 0.0, &tithi_angle, 35.0) {
+        // Tithi angle advances ~12-14°/day — day-sized brackets are safe.
+        if let Some(crossing_jd) =
+            find_crossing_forward_step(jd, 0.0, &tithi_angle, 35.0, BRACKET_STEP_DAY)
+        {
             results.push(crossing_jd);
             // Jump forward ~25 days to find the next one (~29.5 day lunar cycle)
             jd = crossing_jd + 25.0;
@@ -91,7 +94,9 @@ pub fn find_purnimas(year: i32) -> Vec<f64> {
     let mut jd = start_jd;
 
     while jd < end_jd {
-        if let Some(crossing_jd) = find_crossing_forward(jd, 180.0, &tithi_angle, 35.0) {
+        if let Some(crossing_jd) =
+            find_crossing_forward_step(jd, 180.0, &tithi_angle, 35.0, BRACKET_STEP_DAY)
+        {
             results.push(crossing_jd);
             jd = crossing_jd + 25.0;
         } else {
