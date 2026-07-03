@@ -19,7 +19,6 @@ use crate::ephemeris;
 use crate::festival;
 use crate::julian;
 use crate::panchang;
-use crate::sankranti;
 use crate::sun;
 
 /// Result of computing a Shraddha date.
@@ -96,35 +95,38 @@ fn tithi_at_sunrise(
     (tithi, sunrise_jd)
 }
 
-/// Find which lunar month a date falls in, using Sankranti-based lookup.
+/// Find which lunar month a date falls in, using Amant month windows.
 ///
-/// Finds the closest Sankranti before the date and maps it to a lunar month.
+/// A Sankranti falls INSIDE the month it names, so the previous
+/// "last Sankranti before the date" heuristic misclassified every date
+/// between the month-start Amavasya and the naming Sankranti (~half of
+/// all dates) as the previous month. The Amavasya→Amavasya window is the
+/// definition of the amant month — use it directly.
 fn lunar_month_for_date(year: i32, month: u32, day: u32, utc_offset: i32) -> u32 {
-    let date_jd = julian::midnight_jd(year, month, day, utc_offset);
-    let sankrantis = sankranti::compute_sankrantis(year);
+    // Noon keeps the lookup stable regardless of the month boundary's
+    // time-of-day on the same civil date.
+    let date_jd = julian::midnight_jd(year, month, day, utc_offset) + 0.5;
 
-    // Find the last Sankranti before or on this date
-    let mut best_idx = 0;
-    let mut best_jd = 0.0;
-    for (i, s) in sankrantis.iter().enumerate() {
-        if s.jd <= date_jd && s.jd > best_jd {
-            best_jd = s.jd;
-            best_idx = i;
-        }
+    let months =
+        crate::lunar_month::compute_lunar_months(year, crate::lunar_month::CalendarSystem::Amant);
+    if let Some(m) = months
+        .iter()
+        .find(|m| m.start_jd <= date_jd && date_jd < m.end_jd)
+    {
+        return m.number;
     }
-
-    // If no Sankranti found before date (early January), check previous year
-    if best_jd == 0.0 {
-        let prev_sankrantis = sankranti::compute_sankrantis(year - 1);
-        if let Some(last) = prev_sankrantis.last() {
-            let rashi_idx = crate::constants::SANKRANTI_RASHI_INDEX[last.index as usize];
-            return crate::constants::SANKRANTI_TO_LUNAR_MONTH[rashi_idx];
-        }
-        return 10; // Pausha as fallback for early Jan
-    }
-
-    let rashi_idx = crate::constants::SANKRANTI_RASHI_INDEX[sankrantis[best_idx].index as usize];
-    crate::constants::SANKRANTI_TO_LUNAR_MONTH[rashi_idx]
+    // Date outside this year's window list (shouldn't happen — the list
+    // covers the civil year with margin) — check the adjacent year.
+    let adj_year = if month <= 6 { year - 1 } else { year + 1 };
+    let months = crate::lunar_month::compute_lunar_months(
+        adj_year,
+        crate::lunar_month::CalendarSystem::Amant,
+    );
+    months
+        .iter()
+        .find(|m| m.start_jd <= date_jd && date_jd < m.end_jd)
+        .map(|m| m.number)
+        .unwrap_or(10)
 }
 
 /// Build a TithiOccurrence from a sunrise JD.
@@ -250,11 +252,14 @@ fn find_pitru_paksha_date(
     alt: f64,
     utc_offset: i32,
 ) -> Option<TithiOccurrence> {
-    // Pitru Paksha = Krishna Paksha, so we need Krishna tithi (16-30)
-    // If death tithi was Shukla (1-15), no direct match in Pitru Paksha
-    if target_tithi <= 15 {
-        return None;
-    }
+    // Pitru Paksha shraddha is performed on the same tithi-of-paksha:
+    // a Shukla Panchami (5) death maps to Pitru Paksha Panchami — the
+    // Krishna tithi of the same ordinal (20).
+    let target_tithi = if target_tithi <= 15 {
+        target_tithi + 15
+    } else {
+        target_tithi
+    };
 
     // Search Sep 1 to Oct 15 for the matching Krishna tithi
     let start_jd = julian::midnight_jd(year, 9, 1, utc_offset);

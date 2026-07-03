@@ -222,38 +222,6 @@ fn tithi_display_name(tithi_num: u32) -> String {
     format!("{} {}", paksha, name)
 }
 
-/// Find the first day within a lunar month where the given tithi prevails at sunrise.
-/// Returns (sunrise_jd, local_date_components) or None.
-fn find_tithi_at_sunrise(
-    target_tithi: u32,
-    lunar_month: &LunarMonthInfo,
-    lat: f64,
-    lng: f64,
-    alt: f64,
-    utc_offset: i32,
-) -> Option<(f64, julian::DateTimeComponents)> {
-    // Convert month start to local date for iteration
-    let start_dt = local_date(lunar_month.start_jd, utc_offset);
-    let base_midnight =
-        julian::midnight_jd(start_dt.year, start_dt.month, start_dt.day, utc_offset);
-
-    for day_offset in 0..35 {
-        let midnight = base_midnight + day_offset as f64;
-        let sunrise = sun::sunrise_jd(midnight, lat, lng, alt);
-
-        // Only consider sunrises within the lunar month boundaries
-        if sunrise > lunar_month.start_jd && sunrise <= lunar_month.end_jd {
-            let t = tithi_at_jd(sunrise);
-            if t == target_tithi {
-                let dt = local_date(sunrise, utc_offset);
-                return Some((sunrise, dt));
-            }
-        }
-    }
-
-    None
-}
-
 /// Find the day where the given tithi prevails at sunrise, searching ±20 days
 /// around a Sankranti JD. Returns the match closest to the Sankranti.
 ///
@@ -415,9 +383,11 @@ fn find_tithi_at_sunrise_in_range(
 ///
 /// The natural-day search falls back to the Sankranti-based ±20 day search
 /// when lunar-month boundaries don't cover the edge case.
+#[allow(clippy::too_many_arguments)]
 fn resolve_tithi_festival(
     def: &FestivalDef,
     sankrantis: &[SankrantiInfo],
+    lunar_months: &[LunarMonthInfo],
     lat: f64,
     lng: f64,
     alt: f64,
@@ -443,10 +413,15 @@ fn resolve_tithi_festival(
     // Always use Amant boundaries for festival date resolution — Amant month N
     // (Amavasya→Amavasya) contains both Shukla + Krishna Paksha of month N.
     // The `calendar_system` parameter only affects month labeling on display.
-    let lunar_months = lunar_month::compute_lunar_months(s_dt.year, CalendarSystem::Amant);
+    // The windows are computed once by the caller and shared across defs.
 
     // ---- Select target lunar month(s) per adhika_maasa policy ----
-    let target_month = select_target_month(&lunar_months, def.lunar_month, def.adhika_maasa);
+    let target_month = select_target_month(
+        lunar_months,
+        def.lunar_month,
+        def.adhika_maasa,
+        sankranti.jd,
+    );
 
     // ---- Step 1: find natural (paraviddha) day ----
     let (natural_sunrise, natural_dt, is_fallback, is_adhik) = if let Some(lm) = target_month {
@@ -504,13 +479,35 @@ fn select_target_month(
     lunar_months: &[LunarMonthInfo],
     month_num: u32,
     policy: AdhikaMaasa,
+    anchor_jd: f64,
 ) -> Option<&LunarMonthInfo> {
+    // The same month number can appear TWICE in a year's window list (one
+    // instance at each year edge — e.g. Margashirsha ending in early January
+    // belongs to both year N-1's and year N's lists). Pick the instance that
+    // contains the anchor Sankranti (a Sankranti always falls inside the
+    // month it names); fall back to the first instance for safety.
     let nija = lunar_months
         .iter()
-        .find(|m| m.number == month_num && !m.is_adhik);
+        .find(|m| {
+            m.number == month_num && !m.is_adhik && m.start_jd <= anchor_jd && anchor_jd < m.end_jd
+        })
+        .or_else(|| {
+            lunar_months
+                .iter()
+                .find(|m| m.number == month_num && !m.is_adhik)
+        });
+    // An adhika month contains no Sankranti by definition; it immediately
+    // precedes its nija twin, so pick the one whose window ends closest
+    // before the anchor.
     let adhika = lunar_months
         .iter()
-        .find(|m| m.number == month_num && m.is_adhik);
+        .filter(|m| m.number == month_num && m.is_adhik && m.start_jd <= anchor_jd)
+        .max_by(|a, b| a.start_jd.partial_cmp(&b.start_jd).unwrap())
+        .or_else(|| {
+            lunar_months
+                .iter()
+                .find(|m| m.number == month_num && m.is_adhik)
+        });
 
     match policy {
         AdhikaMaasa::Nija => nija,
@@ -1010,13 +1007,25 @@ pub fn compute_festivals(
 
     let sankrantis = sankranti::compute_sankrantis(year);
 
+    // Amant month windows are identical for every tithi festival this year —
+    // compute once here instead of once per def (~50x for a full year, which
+    // used to dominate the entire computation).
+    let lunar_months = lunar_month::compute_lunar_months(year, CalendarSystem::Amant);
+
     let mut results = Vec::with_capacity(defs.len());
 
     for def in defs {
         let occurrence = match def.rule.as_str() {
-            "tithi_at_sunrise" => {
-                resolve_tithi_festival(def, &sankrantis, lat, lng, alt, utc_offset, calendar_system)
-            }
+            "tithi_at_sunrise" => resolve_tithi_festival(
+                def,
+                &sankrantis,
+                &lunar_months,
+                lat,
+                lng,
+                alt,
+                utc_offset,
+                calendar_system,
+            ),
             "sankranti" => resolve_sankranti_festival(def, &sankrantis, lat, lng, alt, utc_offset),
             "nakshatra_at_sunrise" => {
                 resolve_nakshatra_festival(def, &sankrantis, lat, lng, alt, utc_offset)
@@ -1193,22 +1202,23 @@ fn resolve_ekadashi(
     let next_dt = local_date(next_sunrise, utc_offset);
 
     // Dharmasindhu nirnaya:
-    // - No vedha on day 1                  → everyone observes day 1.
-    // - Vedha, and Ekadashi still prevails
-    //   at day 2's sunrise                 → everyone observes day 2 (sarva).
-    // - Vedha, but Ekadashi has ended by
-    //   day 2's sunrise                    → Smartas keep day 1, Vaishnavas
+    // - Tithi-vriddhi (Ekadashi prevails at BOTH sunrises,
+    //   "vriddhau uttara")                 → everyone observes day 2,
+    //                                        vedha or not (Vijaya 2027 =
+    //                                        Mar 4; Padmini 2026 = May 27).
+    // - Vedha, single-sunrise Ekadashi     → Smartas keep day 1, Vaishnavas
     //                                        shift to day 2 (Dvadashi fast).
+    // - No vedha, single sunrise           → everyone observes day 1.
     let ekadashi_at_next_sunrise = tithi_at_jd(next_sunrise) == target_tithi;
 
-    let (smartha_sunrise, smartha_dt, vaishnava_sunrise, vaishnava_dt) =
-        if dashami_at_arunodaya && ekadashi_at_next_sunrise {
-            (next_sunrise, next_dt, next_sunrise, next_dt)
-        } else if dashami_at_arunodaya {
-            (first_sunrise, first_dt, next_sunrise, next_dt)
-        } else {
-            (first_sunrise, first_dt, first_sunrise, first_dt)
-        };
+    let (smartha_sunrise, smartha_dt, vaishnava_sunrise, vaishnava_dt) = if ekadashi_at_next_sunrise
+    {
+        (next_sunrise, next_dt, next_sunrise, next_dt)
+    } else if dashami_at_arunodaya {
+        (first_sunrise, first_dt, next_sunrise, next_dt)
+    } else {
+        (first_sunrise, first_dt, first_sunrise, first_dt)
+    };
 
     let paksha: &'static str = if is_shukla { "Shukla" } else { "Krishna" };
 
@@ -1218,18 +1228,17 @@ fn resolve_ekadashi(
         lunar_month_name.to_string()
     };
 
-    let reasoning = if dashami_at_arunodaya && ekadashi_at_next_sunrise {
+    let reasoning = if ekadashi_at_next_sunrise {
         format!(
-            "{} Ekadashi (Tithi {}) is Dashami-viddha at Arunodaya on \
-             {}-{:02}-{:02} but still prevails at next sunrise ({}), so both \
-             Smartha and Vaishnava observance shift to {}-{:02}-{:02} \
-             (Dharmasindhu). Lunar month: {}.",
+            "{} Ekadashi (Tithi {}) prevails at sunrise on both \
+             {}-{:02}-{:02} and the next day (tithi-vriddhi), so both \
+             Smartha and Vaishnava observance fall on {}-{:02}-{:02} \
+             (vriddhau uttara, Dharmasindhu). Lunar month: {}.",
             paksha,
             target_tithi,
             first_dt.year,
             first_dt.month,
             first_dt.day,
-            format_local_time(smartha_sunrise, utc_offset),
             smartha_dt.year,
             smartha_dt.month,
             smartha_dt.day,
@@ -1312,18 +1321,32 @@ pub fn compute_vrat_dates(
     ];
 
     for month_info in &lunar_months {
-        if month_info.is_adhik {
-            continue;
-        }
+        // Month-recurring vrats ARE observed in adhika months (Drik Panchang
+        // lists them with an "Adhika" prefix) — skipping them used to leave a
+        // ~30-day vrat gap in every adhika year.
+        let month_label = if month_info.is_adhik {
+            format!("Adhika {}", month_info.name)
+        } else {
+            month_info.name.to_string()
+        };
 
         for &(target_tithi, vrat_type, paksha) in &vrat_tithis {
-            if let Some((sunrise, dt)) =
-                find_tithi_at_sunrise(target_tithi, month_info, lat, lng, alt, utc_offset)
-            {
+            // In-range search includes the kshaya fallback: a Trayodashi or
+            // Chaturthi that never spans sunrise would otherwise silently
+            // drop that month's vrat.
+            if let Some((sunrise, dt)) = find_tithi_at_sunrise_in_range(
+                target_tithi,
+                month_info.start_jd,
+                month_info.end_jd,
+                lat,
+                lng,
+                alt,
+                utc_offset,
+            ) {
                 if dt.year == year {
                     results.push(VratOccurrence {
                         vrat_type: vrat_type.to_string(),
-                        name: format!("{} ({})", vrat_type, month_info.name),
+                        name: format!("{} ({})", vrat_type, month_label),
                         year: dt.year,
                         month: dt.month,
                         day: dt.day,

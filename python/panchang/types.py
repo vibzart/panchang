@@ -6,8 +6,9 @@ from datetime import date as Date  # noqa: N812 — alias needed to avoid Pydant
 from datetime import datetime
 from enum import IntEnum, StrEnum
 from typing import Optional
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # --- Enums ---
 
@@ -207,8 +208,19 @@ class Location(BaseModel):
 
     lat: float = Field(..., ge=-90, le=90, description="Latitude in decimal degrees")
     lng: float = Field(..., ge=-180, le=180, description="Longitude in decimal degrees")
-    altitude: float = Field(default=0.0, ge=0, description="Altitude in meters above sea level")
+    altitude: float = Field(
+        default=0.0, ge=-500, description="Altitude in meters relative to sea level"
+    )
     tz: str = Field(default="UTC", description="IANA timezone string (e.g. 'Asia/Kolkata')")
+
+    @field_validator("tz")
+    @classmethod
+    def _tz_must_be_valid_iana(cls, v: str) -> str:
+        try:
+            ZoneInfo(v)
+        except (ZoneInfoNotFoundError, ValueError) as e:
+            raise ValueError(f"unknown IANA timezone {v!r} — e.g. use 'Asia/Kolkata'") from e
+        return v
 
 
 # --- Panchang element models ---

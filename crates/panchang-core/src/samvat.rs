@@ -24,13 +24,10 @@
 /// era year may be one less (for eras where the new year falls after Jan 1).
 pub fn era_year_from_offset(gregorian_year: i32, offset: i32, new_year_passed: bool) -> i32 {
     let base = gregorian_year + offset;
-    if offset > 0 && !new_year_passed {
-        // For eras ahead of CE (like Vikram Samvat), before the new year
-        // we're still in the previous era year
-        base
-    } else if offset < 0 && !new_year_passed {
-        // For eras behind CE (like Shaka), before the new year
-        // we're still in the previous era year
+    if !new_year_passed {
+        // Before the regional new year we're still in the previous era
+        // year, regardless of the offset's sign. (VS 2083 begins only at
+        // Chaitra S1 in March 2026 — January 2026 is still VS 2082.)
         base - 1
     } else {
         base
@@ -55,7 +52,7 @@ mod tests {
         // 2026 CE = Vikram Samvat 2082-2083
         // Before Chaitra S1 (~March): VS 2082
         // After Chaitra S1: VS 2083
-        assert_eq!(era_year_from_offset(2026, 57, false), 2083);
+        assert_eq!(era_year_from_offset(2026, 57, false), 2082);
         assert_eq!(era_year_from_offset(2026, 57, true), 2083);
     }
 
@@ -84,8 +81,8 @@ mod tests {
 
     #[test]
     fn test_thiruvalluvar_2026() {
-        // 2026 CE = Thiruvalluvar 2057
-        assert_eq!(era_year_from_offset(2026, 31, false), 2057);
+        // 2026 CE = Thiruvalluvar 2056-2057 (rolls over at Puthandu, mid-Apr)
+        assert_eq!(era_year_from_offset(2026, 31, false), 2056);
         assert_eq!(era_year_from_offset(2026, 31, true), 2057);
     }
 
