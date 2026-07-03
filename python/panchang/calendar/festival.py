@@ -43,6 +43,12 @@ def compute_festivals(
 
     Returns:
         List of FestivalInfo, sorted chronologically.
+
+    Note on DST timezones: dates are resolved with the location's mid-year
+    UTC offset. Festival DATES are unaffected, but "HH:MM" times inside
+    reasoning strings can be one hour off for the half of the year on the
+    other side of a DST transition. Fixed-offset zones (all of India) are
+    exact.
     """
     py_init(None)
     utc_offset = _tz_offset_for_date(location.tz, year, 6, 15)
@@ -104,6 +110,12 @@ def compute_ekadashis(year: int, location: Location) -> list[EkadashiInfo]:
 
     Returns:
         List of EkadashiInfo, sorted chronologically.
+
+    Note on DST timezones: dates are resolved with the location's mid-year
+    UTC offset. Festival DATES are unaffected, but "HH:MM" times inside
+    reasoning strings can be one hour off for the half of the year on the
+    other side of a DST transition. Fixed-offset zones (all of India) are
+    exact.
     """
     py_init(None)
     utc_offset = _tz_offset_for_date(location.tz, year, 6, 15)
@@ -151,6 +163,12 @@ def compute_vrat_dates(year: int, location: Location) -> list[VratInfo]:
 
     Returns:
         List of VratInfo, sorted chronologically.
+
+    Note on DST timezones: dates are resolved with the location's mid-year
+    UTC offset. Festival DATES are unaffected, but "HH:MM" times inside
+    reasoning strings can be one hour off for the half of the year on the
+    other side of a DST transition. Fixed-offset zones (all of India) are
+    exact.
     """
     py_init(None)
     utc_offset = _tz_offset_for_date(location.tz, year, 6, 15)

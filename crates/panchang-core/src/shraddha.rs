@@ -197,6 +197,10 @@ fn find_tithi_occurrences(
     // Find the first occurrence by scanning day-by-day (max ~35 days)
     for _ in 0..35 {
         let sunrise = sun::sunrise_jd(current_jd, lat, lng, alt);
+        if !sunrise.is_finite() {
+            current_jd += 1.0;
+            continue;
+        }
         let t = festival::tithi_at_jd(sunrise);
         if t == target_tithi {
             results.push(occurrence_at_sunrise(sunrise, utc_offset, target_tithi));
@@ -224,6 +228,9 @@ fn find_tithi_occurrences(
                 continue;
             }
             let sunrise = sun::sunrise_jd(midnight, lat, lng, alt);
+            if !sunrise.is_finite() {
+                continue;
+            }
             let t = festival::tithi_at_jd(sunrise);
             if t == target_tithi {
                 results.push(occurrence_at_sunrise(sunrise, utc_offset, target_tithi));
@@ -268,6 +275,10 @@ fn find_pitru_paksha_date(
 
     while current <= end_jd {
         let sunrise = sun::sunrise_jd(current, lat, lng, alt);
+        if !sunrise.is_finite() {
+            current += 1.0;
+            continue;
+        }
         let t = festival::tithi_at_jd(sunrise);
         if t == target_tithi {
             // Verify it's in Bhadrapada's Krishna Paksha by checking lunar month

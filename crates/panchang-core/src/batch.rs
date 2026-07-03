@@ -105,6 +105,20 @@ pub fn compute_range(
         }
 
         let sun_data = sun::compute_sun_data(year, month, day, lat, lng, alt, utc_offset);
+        if !sun_data.sunrise_jd.is_finite() || !sun_data.sunset_jd.is_finite() {
+            // Circumpolar day — no sunrise-anchored panchanga exists; skip
+            // the day rather than emit a nonsense entry (JD 0 = 4713 BCE).
+            day += 1;
+            if day > days_in_month(year, month) {
+                day = 1;
+                month += 1;
+                if month > 12 {
+                    month = 1;
+                    year += 1;
+                }
+            }
+            continue;
+        }
         let weekday = weekday_from_date(year, month, day);
         let mut panchang_result = panchang::compute(sun_data.sunrise_jd, weekday);
         panchang_result.sun = sun_data;
