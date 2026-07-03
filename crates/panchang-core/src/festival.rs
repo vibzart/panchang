@@ -55,6 +55,11 @@ pub struct FestivalDef {
     pub priority: Priority,
     /// Kaala window for the `vyapti` priority. Ignored for other priorities.
     pub kaala: Kaala,
+    /// Tie-break when the tithi has kaala-vyapti on BOTH candidate days.
+    /// `false` (default) → later day wins (paraviddha fallback, e.g.
+    /// Akshaya Tritiya). `true` → earlier day wins (e.g. Vijayadashami:
+    /// "dinadvaye aparahna-vyaptau purva", Nirnaya Sindhu).
+    pub vyapti_tie_purva: bool,
     /// How to handle the adhika (intercalary) month for this festival.
     pub adhika_maasa: AdhikaMaasa,
 }
@@ -79,6 +84,7 @@ impl FestivalDef {
             nakshatra: None,
             priority: Priority::default(),
             kaala: Kaala::default(),
+            vyapti_tie_purva: false,
             adhika_maasa: AdhikaMaasa::default(),
         }
     }
@@ -145,6 +151,10 @@ pub struct EkadashiOccurrence {
     pub name: String,
     pub lunar_month: u32,
     pub lunar_month_name: &'static str,
+    /// True when this Ekadashi falls in an Adhika (intercalary) month.
+    /// Adhika-month Ekadashis carry the universal names Padmini (Shukla)
+    /// and Parama (Krishna) regardless of which month is doubled.
+    pub is_adhik: bool,
     pub paksha: &'static str,
     pub smartha_year: i32,
     pub smartha_month: u32,
@@ -362,8 +372,15 @@ fn find_tithi_at_sunrise_in_range(
         }
         let t = tithi_at_jd(sunrise);
 
-        // Exact match — return immediately
-        if t == target_tithi {
+        // A sunrise BEFORE the month-start moment (the month's first civil
+        // day, when the boundary Amavasya ends later that day) carries the
+        // PREVIOUS month's tithi. It can never be an exact match — for
+        // tithi-30 festivals it would wrongly match the previous month's
+        // Amavasya (Diwali 2026 resolved to Oct 10 instead of Nov 8 that
+        // way). It IS still the valid kshaya-fallback day for tithi 1:
+        // Pratipada that begins after this sunrise and ends before the
+        // next one (e.g. Chaitra Navaratri 2026 = Mar 19).
+        if t == target_tithi && sunrise >= start_jd {
             let dt = local_date(sunrise, utc_offset);
             return Some((sunrise, dt));
         }
@@ -407,7 +424,15 @@ fn resolve_tithi_festival(
     utc_offset: i32,
     calendar_system: CalendarSystem,
 ) -> Option<FestivalOccurrence> {
-    let month_name = LUNAR_MONTH_NAMES[(def.lunar_month - 1) as usize];
+    // Month numbers in festival definitions are AMANT. For display, the
+    // Purnimant system names the Krishna paksha of amant month N as month
+    // N+1 (e.g. amant Ashwin Krishna Trayodashi = purnimant Kartik Krishna
+    // Trayodashi — "Dhanteras in Kartik").
+    let month_name = if calendar_system == CalendarSystem::Purnimant && def.tithi > 15 {
+        LUNAR_MONTH_NAMES[(def.lunar_month % 12) as usize]
+    } else {
+        LUNAR_MONTH_NAMES[(def.lunar_month - 1) as usize]
+    };
 
     // Determine the anchor Sankranti for this lunar month
     let rashi_idx = (def.lunar_month - 1) as usize;
@@ -418,7 +443,6 @@ fn resolve_tithi_festival(
     // Always use Amant boundaries for festival date resolution — Amant month N
     // (Amavasya→Amavasya) contains both Shukla + Krishna Paksha of month N.
     // The `calendar_system` parameter only affects month labeling on display.
-    let _ = calendar_system;
     let lunar_months = lunar_month::compute_lunar_months(s_dt.year, CalendarSystem::Amant);
 
     // ---- Select target lunar month(s) per adhika_maasa policy ----
@@ -632,30 +656,55 @@ fn apply_observance_rule(
             // - If ONLY earlier qualifies → pick earlier (classic "tithi during
             //   kaala on prior day only" case, e.g., Akshaya Tritiya when
             //   Tritiya ends before later day's aparahna).
+            // - If BOTH qualify → tie-break per def.vyapti_tie_purva
+            //   (Vijayadashami takes the earlier day; most others the later).
             // - Otherwise → pick later (paraviddha default).
-            let pick_earlier = earlier_has && !later_has;
+            let pick_earlier = earlier_has && (!later_has || def.vyapti_tie_purva);
 
             let kaala_name = def.kaala.as_str();
             if pick_earlier {
-                let earlier_reason = format!(
-                    "{} {} (Tithi {}) is present during the {} kaala on {}-{:02}-{:02} \
-                     but NOT during that kaala on {}-{:02}-{:02}. \
-                     Vyapti rule: observe on the earlier day. \
-                     Paraviddha alternate (udayatithi rule): {}-{:02}-{:02}.",
-                    month_name,
-                    tithi_display_name(def.tithi),
-                    def.tithi,
-                    kaala_name,
-                    earlier_dt.year,
-                    earlier_dt.month,
-                    earlier_dt.day,
-                    later_dt.year,
-                    later_dt.month,
-                    later_dt.day,
-                    later_dt.year,
-                    later_dt.month,
-                    later_dt.day,
-                );
+                let earlier_reason = if later_has {
+                    format!(
+                        "{} {} (Tithi {}) is present during the {} kaala on both \
+                         {}-{:02}-{:02} and {}-{:02}-{:02}. \
+                         Vyapti tie-break: earlier day observed (purva-vyapti \
+                         convention for this festival). \
+                         Paraviddha alternate (udayatithi rule): {}-{:02}-{:02}.",
+                        month_name,
+                        tithi_display_name(def.tithi),
+                        def.tithi,
+                        kaala_name,
+                        earlier_dt.year,
+                        earlier_dt.month,
+                        earlier_dt.day,
+                        later_dt.year,
+                        later_dt.month,
+                        later_dt.day,
+                        later_dt.year,
+                        later_dt.month,
+                        later_dt.day,
+                    )
+                } else {
+                    format!(
+                        "{} {} (Tithi {}) is present during the {} kaala on {}-{:02}-{:02} \
+                         but NOT during that kaala on {}-{:02}-{:02}. \
+                         Vyapti rule: observe on the earlier day. \
+                         Paraviddha alternate (udayatithi rule): {}-{:02}-{:02}.",
+                        month_name,
+                        tithi_display_name(def.tithi),
+                        def.tithi,
+                        kaala_name,
+                        earlier_dt.year,
+                        earlier_dt.month,
+                        earlier_dt.day,
+                        later_dt.year,
+                        later_dt.month,
+                        later_dt.day,
+                        later_dt.year,
+                        later_dt.month,
+                        later_dt.day,
+                    )
+                };
 
                 Some(FestivalOccurrence {
                     festival_id: def.id.clone(),
@@ -988,7 +1037,9 @@ pub fn compute_festivals(
     results
 }
 
-/// Compute all 24 Ekadashis for a year (2 per lunar month).
+/// Compute all Ekadashis for a year (2 per lunar month; 24 in a regular
+/// year, 26 in an Adhika-maas year — the intercalary month contributes
+/// Padmini (Shukla) and Parama (Krishna)).
 ///
 /// Each Ekadashi has both Smartha and Vaishnava dates.
 /// The Vaishnava date may differ by one day if Dashami persists at Arunodaya.
@@ -1027,12 +1078,17 @@ pub fn compute_ekadashis(
         // Find all Amant lunar months with this number (could be two if adhika).
         // Resolve Ekadashi in each; results get filtered to `year` below.
         for lm in &lunar_months {
-            if lm.number != def.month || lm.is_adhik {
-                // Skip adhika months — their Ekadashis are traditionally not
-                // considered separately for most households. Adhika-month
-                // Ekadashi resolution is a future enhancement.
+            if lm.number != def.month {
                 continue;
             }
+
+            // Adhika-month Ekadashis have universal names — Padmini (Shukla)
+            // and Parama (Krishna) — regardless of which month is doubled.
+            let (shukla_name, krishna_name) = if lm.is_adhik {
+                ("Padmini", "Parama")
+            } else {
+                (def.shukla_name.as_str(), def.krishna_name.as_str())
+            };
 
             // Shukla Ekadashi (tithi 11)
             if let Some(ek) = resolve_ekadashi(
@@ -1040,8 +1096,9 @@ pub fn compute_ekadashis(
                 lm.end_jd,
                 def.month,
                 month_name,
+                lm.is_adhik,
                 true,
-                &def.shukla_name,
+                shukla_name,
                 lat,
                 lng,
                 alt,
@@ -1058,8 +1115,9 @@ pub fn compute_ekadashis(
                 lm.end_jd,
                 def.month,
                 month_name,
+                lm.is_adhik,
                 false,
-                &def.krishna_name,
+                krishna_name,
                 lat,
                 lng,
                 alt,
@@ -1085,6 +1143,7 @@ pub fn compute_ekadashis(
             && a.smartha_day == b.smartha_day
             && a.paksha == b.paksha
             && a.lunar_month == b.lunar_month
+            && a.is_adhik == b.is_adhik
     });
     results
 }
@@ -1101,6 +1160,7 @@ fn resolve_ekadashi(
     month_end_jd: f64,
     lunar_month_num: u32,
     lunar_month_name: &'static str,
+    is_adhik: bool,
     is_shukla: bool,
     name: &str,
     lat: f64,
@@ -1111,7 +1171,7 @@ fn resolve_ekadashi(
     let target_tithi: u32 = if is_shukla { 11 } else { 26 };
     let dashami_tithi: u32 = target_tithi - 1;
 
-    let (smartha_sunrise, smartha_dt) = find_tithi_at_sunrise_in_range(
+    let (first_sunrise, first_dt) = find_tithi_at_sunrise_in_range(
         target_tithi,
         month_start_jd,
         month_end_jd,
@@ -1121,29 +1181,61 @@ fn resolve_ekadashi(
         utc_offset,
     )?;
 
-    // Vaishnava rule: check if Dashami persists at Arunodaya
-    let arunodaya_jd = smartha_sunrise - ARUNODAYA_MINUTES / 1440.0;
+    // Dashami-vedha check: is Dashami still running at Arunodaya
+    // (96 min before sunrise) on the first candidate day?
+    let arunodaya_jd = first_sunrise - ARUNODAYA_MINUTES / 1440.0;
     let tithi_at_arunodaya = tithi_at_jd(arunodaya_jd);
     let dashami_at_arunodaya = tithi_at_arunodaya == dashami_tithi;
 
-    let (vaishnava_sunrise, vaishnava_dt) = if dashami_at_arunodaya {
-        // Shift to next day
-        let next_midnight = julian::midnight_jd(
-            smartha_dt.year,
-            smartha_dt.month,
-            smartha_dt.day,
-            utc_offset,
-        ) + 1.0;
-        let next_sunrise = sun::sunrise_jd(next_midnight, lat, lng, alt);
-        let next_dt = local_date(next_sunrise, utc_offset);
-        (next_sunrise, next_dt)
-    } else {
-        (smartha_sunrise, smartha_dt)
-    };
+    let next_midnight =
+        julian::midnight_jd(first_dt.year, first_dt.month, first_dt.day, utc_offset) + 1.0;
+    let next_sunrise = sun::sunrise_jd(next_midnight, lat, lng, alt);
+    let next_dt = local_date(next_sunrise, utc_offset);
+
+    // Dharmasindhu nirnaya:
+    // - No vedha on day 1                  → everyone observes day 1.
+    // - Vedha, and Ekadashi still prevails
+    //   at day 2's sunrise                 → everyone observes day 2 (sarva).
+    // - Vedha, but Ekadashi has ended by
+    //   day 2's sunrise                    → Smartas keep day 1, Vaishnavas
+    //                                        shift to day 2 (Dvadashi fast).
+    let ekadashi_at_next_sunrise = tithi_at_jd(next_sunrise) == target_tithi;
+
+    let (smartha_sunrise, smartha_dt, vaishnava_sunrise, vaishnava_dt) =
+        if dashami_at_arunodaya && ekadashi_at_next_sunrise {
+            (next_sunrise, next_dt, next_sunrise, next_dt)
+        } else if dashami_at_arunodaya {
+            (first_sunrise, first_dt, next_sunrise, next_dt)
+        } else {
+            (first_sunrise, first_dt, first_sunrise, first_dt)
+        };
 
     let paksha: &'static str = if is_shukla { "Shukla" } else { "Krishna" };
 
-    let reasoning = if dashami_at_arunodaya {
+    let month_display = if is_adhik {
+        format!("Adhika {}", lunar_month_name)
+    } else {
+        lunar_month_name.to_string()
+    };
+
+    let reasoning = if dashami_at_arunodaya && ekadashi_at_next_sunrise {
+        format!(
+            "{} Ekadashi (Tithi {}) is Dashami-viddha at Arunodaya on \
+             {}-{:02}-{:02} but still prevails at next sunrise ({}), so both \
+             Smartha and Vaishnava observance shift to {}-{:02}-{:02} \
+             (Dharmasindhu). Lunar month: {}.",
+            paksha,
+            target_tithi,
+            first_dt.year,
+            first_dt.month,
+            first_dt.day,
+            format_local_time(smartha_sunrise, utc_offset),
+            smartha_dt.year,
+            smartha_dt.month,
+            smartha_dt.day,
+            month_display,
+        )
+    } else if dashami_at_arunodaya {
         format!(
             "{} Ekadashi (Tithi {}) prevails at sunrise ({}) on {}-{:02}-{:02}. \
              Dashami (Tithi {}) persists at Arunodaya (96 min before sunrise), \
@@ -1159,7 +1251,7 @@ fn resolve_ekadashi(
             vaishnava_dt.year,
             vaishnava_dt.month,
             vaishnava_dt.day,
-            lunar_month_name,
+            month_display,
         )
     } else {
         format!(
@@ -1172,7 +1264,7 @@ fn resolve_ekadashi(
             smartha_dt.year,
             smartha_dt.month,
             smartha_dt.day,
-            lunar_month_name,
+            month_display,
         )
     };
 
@@ -1180,6 +1272,7 @@ fn resolve_ekadashi(
         name: name.to_string(),
         lunar_month: lunar_month_num,
         lunar_month_name,
+        is_adhik,
         paksha,
         smartha_year: smartha_dt.year,
         smartha_month: smartha_dt.month,
@@ -1362,6 +1455,7 @@ mod tests {
             nakshatra: None,
             priority: Priority::default(),
             kaala: Kaala::default(),
+            vyapti_tie_purva: false,
             adhika_maasa: AdhikaMaasa::default(),
         }];
         let results = compute_festivals(&defs, 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
@@ -1474,6 +1568,7 @@ mod tests {
             nakshatra: Some(22),
             priority: Priority::default(),
             kaala: Kaala::default(),
+            vyapti_tie_purva: false,
             adhika_maasa: AdhikaMaasa::default(),
         }];
 
@@ -1509,6 +1604,7 @@ mod tests {
             nakshatra: Some(5),
             priority: Priority::default(),
             kaala: Kaala::default(),
+            vyapti_tie_purva: false,
             adhika_maasa: AdhikaMaasa::default(),
         }];
 
@@ -1583,7 +1679,9 @@ mod tests {
         let defs = vec![
             FestivalDef::new_tithi("akshaya_tritiya", "Akshaya Tritiya", 2, 3),
             FestivalDef::new_tithi("dussehra", "Dussehra", 7, 10),
-            FestivalDef::new_tithi("diwali", "Diwali", 8, 30),
+            // Diwali = Amavasya ending amant Ashwin (month 7). "Kartik
+            // Amavasya" is the purnimant label for the same paksha.
+            FestivalDef::new_tithi("diwali", "Diwali", 7, 30),
         ];
 
         let results = compute_festivals(&defs, 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);

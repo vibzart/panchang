@@ -566,6 +566,9 @@ fn py_compute_festivals<'py>(
             kaala: extract_opt_str(d, "kaala")?
                 .map(|s| observance::Kaala::from_label(&s))
                 .unwrap_or_default(),
+            vyapti_tie_purva: extract_opt_str(d, "vyapti_tie")?
+                .map(|s| s.eq_ignore_ascii_case("purva"))
+                .unwrap_or(false),
             adhika_maasa: extract_opt_str(d, "adhika_maasa")?
                 .map(|s| observance::AdhikaMaasa::from_label(&s))
                 .unwrap_or_default(),
@@ -641,6 +644,7 @@ fn py_compute_ekadashis<'py>(
             dict.set_item("name", &ek.name)?;
             dict.set_item("lunar_month", ek.lunar_month)?;
             dict.set_item("lunar_month_name", ek.lunar_month_name)?;
+            dict.set_item("is_adhik", ek.is_adhik)?;
             dict.set_item("paksha", ek.paksha)?;
             dict.set_item("smartha_year", ek.smartha_year)?;
             dict.set_item("smartha_month", ek.smartha_month)?;

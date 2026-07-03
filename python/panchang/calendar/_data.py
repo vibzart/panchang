@@ -39,6 +39,7 @@ def get_festival_defs() -> list[dict]:
         - nakshatra                   (for nakshatra_at_sunrise rule)
         - priority                    (optional: paraviddha | puurvaviddha | vyapti)
         - kaala                       (optional: sunrise | aparahna | ... — for vyapti)
+        - vyapti_tie                  (optional: purva | para — both-days vyapti tie-break)
         - adhika_maasa                (optional: nija | adhika | adhika_and_nija | adhika_if_exists)
 
     Unknown values for the optional observance fields fall through to Rust defaults
@@ -59,6 +60,7 @@ def get_festival_defs() -> list[dict]:
                 "nakshatra": f.get("nakshatra"),
                 "priority": f.get("priority"),
                 "kaala": f.get("kaala"),
+                "vyapti_tie": f.get("vyapti_tie"),
                 "adhika_maasa": f.get("adhika_maasa"),
             }
         )
