@@ -374,6 +374,7 @@ pub fn compute_shraddha_timeline(
         nakshatra: None,
         priority: crate::observance::Priority::Paraviddha,
         kaala: crate::observance::Kaala::Sunrise,
+        vyapti_tie_purva: false,
         adhika_maasa: crate::observance::AdhikaMaasa::Nija,
     };
     let defs = vec![def];
@@ -476,6 +477,7 @@ pub fn compute_shraddha(
         nakshatra: None,
         priority: crate::observance::Priority::Paraviddha,
         kaala: crate::observance::Kaala::Sunrise,
+        vyapti_tie_purva: false,
         adhika_maasa: crate::observance::AdhikaMaasa::Nija,
     };
 

@@ -125,6 +125,7 @@ def compute_ekadashis(year: int, location: Location) -> list[EkadashiInfo]:
                 name=raw["name"],
                 lunar_month=raw["lunar_month"],
                 lunar_month_name=raw["lunar_month_name"],
+                is_adhik=raw["is_adhik"],
                 paksha=Paksha(raw["paksha"]),
                 smartha_date=date(raw["smartha_year"], raw["smartha_month"], raw["smartha_day"]),
                 vaishnava_date=date(

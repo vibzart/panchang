@@ -136,6 +136,10 @@ festivals:
     lunar_month: 11
     tithi: 29            # Krishna Chaturdashi
     regions: [all]
+    # Shivaratri is the day whose NIGHT holds Chaturdashi — nishita-vyapti
+    # (Dharma Sindhu; matches Drik Panchang, e.g. 2026-02-15 not 02-16).
+    priority: vyapti
+    kaala: nishita
 
   # ==========================================================================
   # PHALGUNA (Month 12) — Feb-Mar
@@ -203,6 +207,10 @@ festivals:
     lunar_month: 1
     tithi: 9             # Shukla Navami
     regions: [all]
+    # Rama was born at midday — the day with madhyahna-vyapti wins
+    # (Smarta convention; the ISKCON/Vaishnava date can differ by a day).
+    priority: vyapti
+    kaala: madhyahna
 
   - id: mahavir_jayanti
     name: Mahavir Jayanti
@@ -365,6 +373,10 @@ festivals:
     tithi: 4             # Shukla Chaturthi
     aliases: [Vinayaka Chaturthi]
     regions: [all]
+    # Ganesha puja is performed at midday — madhyahna-vyapti rule
+    # (matches Drik Panchang, e.g. 2026-09-14 not 09-15).
+    priority: vyapti
+    kaala: madhyahna
 
   - id: rishi_panchami
     name: Rishi Panchami
@@ -449,6 +461,13 @@ festivals:
     tithi: 10            # Shukla Dashami
     aliases: [Vijayadashami]
     regions: [all]
+    # Vijaya muhurta falls in the afternoon — aparahna-vyapti rule.
+    # When Dashami covers aparahna on BOTH days, the earlier day wins
+    # ("dinadvaye aparahna-vyaptau purva", Nirnaya Sindhu; matches Drik
+    # Panchang, e.g. 2026-10-20 not 10-21).
+    priority: vyapti
+    kaala: aparahna
+    vyapti_tie: purva
 
   - id: sharad_purnima
     name: Sharad Purnima
@@ -463,37 +482,53 @@ festivals:
   # KARTIK (Month 8) — Oct-Nov
   # ==========================================================================
 
+  # NOTE on months: this file uses AMANT month numbers throughout. The
+  # Diwali-cluster festivals below are popularly described as "Kartik
+  # Krishna ..." — that is the PURNIMANT label; in amant terms the same
+  # paksha belongs to Ashwin (month 7). They previously said month 8,
+  # which resolved them a full month late (after Diwali).
+
   - id: karva_chauth
     name: Karva Chauth
     description: Married women's fasting for husband's long life
     rule: tithi_at_sunrise
-    lunar_month: 8
-    tithi: 19            # Krishna Chaturthi
+    lunar_month: 7
+    tithi: 19            # Krishna Chaturthi (purnimant Kartik K4)
     regions: [north_india, punjab]
+    # Vrat is kept while Chaturthi prevails through moonrise (evening) —
+    # approximated by pradosha-vyapti, matching Drik Panchang.
+    priority: vyapti
+    kaala: pradosha
 
   - id: ahoi_ashtami
     name: Ahoi Ashtami
     description: Mothers' fasting for children's well-being
     rule: tithi_at_sunrise
-    lunar_month: 8
-    tithi: 23            # Krishna Ashtami
+    lunar_month: 7
+    tithi: 23            # Krishna Ashtami (purnimant Kartik K8)
     regions: [north_india]
+    # Puja at dusk when stars appear — pradosha-vyapti rule.
+    priority: vyapti
+    kaala: pradosha
 
   - id: dhanteras
     name: Dhanteras
     description: Worship of Dhanvantari — buying gold and utensils
     rule: tithi_at_sunrise
-    lunar_month: 8
-    tithi: 28            # Krishna Trayodashi
+    lunar_month: 7
+    tithi: 28            # Krishna Trayodashi (purnimant Kartik K13)
     aliases: [Dhantrayodashi, Dhanvantari Jayanti]
     regions: [all]
+    # Observed on the day Trayodashi prevails at pradosha (Dharma Sindhu).
+    priority: vyapti
+    kaala: pradosha
 
   - id: narak_chaturdashi
     name: Narak Chaturdashi
     description: Krishna killed demon Narakasura — Choti Diwali
     rule: tithi_at_sunrise
-    lunar_month: 8
-    tithi: 29            # Krishna Chaturdashi
+    lunar_month: 7
+    tithi: 29            # Krishna Chaturdashi (purnimant Kartik K14)
     aliases: [Choti Diwali, Roop Chaturdashi]
     regions: [all]
 
@@ -501,10 +536,14 @@ festivals:
     name: Diwali
     description: Festival of Lights — Lakshmi Puja
     rule: tithi_at_sunrise
-    lunar_month: 8
-    tithi: 30            # Amavasya
+    lunar_month: 7
+    tithi: 30            # Amavasya (last day of amant Ashwin)
     aliases: [Deepavali]
     regions: [all]
+    # Lakshmi Puja is performed while Amavasya prevails at pradosha —
+    # the day with pradosha-vyapti wins (Nirnaya Sindhu, Drik Panchang).
+    priority: vyapti
+    kaala: pradosha
 
   - id: govardhan_puja
     name: Govardhan Puja

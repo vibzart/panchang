@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import IntEnum, StrEnum
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 # --- Enums ---
 
@@ -196,7 +196,14 @@ KARANA_NAMES = [
 
 
 class Location(BaseModel):
-    """Geographic location for calendar computations."""
+    """Geographic location for calendar computations.
+
+    Unknown keyword arguments are rejected (``extra="forbid"``): a typo
+    like ``timezone=`` instead of ``tz=`` would otherwise be silently
+    dropped and every computed date would shift to the default UTC.
+    """
+
+    model_config = ConfigDict(extra="forbid")
 
     lat: float = Field(..., ge=-90, le=90, description="Latitude in decimal degrees")
     lng: float = Field(..., ge=-180, le=180, description="Longitude in decimal degrees")
@@ -428,6 +435,11 @@ class EkadashiInfo(BaseModel):
     name: str = Field(..., description="Ekadashi name (e.g. 'Kamada')")
     lunar_month: int = Field(..., ge=1, le=12, description="Lunar month number")
     lunar_month_name: str = Field(..., description="Lunar month name")
+    is_adhik: bool = Field(
+        default=False,
+        description="True if this Ekadashi falls in an Adhika (intercalary) "
+        "month — Padmini (Shukla) or Parama (Krishna)",
+    )
     paksha: Paksha = Field(..., description="Shukla or Krishna")
     smartha_date: Date = Field(..., description="Smartha Ekadashi date")
     vaishnava_date: Date = Field(..., description="Vaishnava Ekadashi date")
