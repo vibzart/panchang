@@ -591,6 +591,10 @@ fn py_compute_festivals<'py>(
             vyapti_tie_purva: extract_opt_str(d, "vyapti_tie")?
                 .map(|s| s.eq_ignore_ascii_case("purva"))
                 .unwrap_or(false),
+            day_offset: match d.get_item("day_offset")? {
+                Some(v) if !v.is_none() => v.extract().unwrap_or(0),
+                _ => 0,
+            },
             adhika_maasa: extract_opt_str(d, "adhika_maasa")?
                 .map(|s| observance::AdhikaMaasa::from_label(&s))
                 .unwrap_or_default(),

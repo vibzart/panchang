@@ -56,8 +56,24 @@ festivals:
     description: Sun enters Capricorn — harvest festival, kite flying
     rule: sankranti
     sankranti_index: 0
-    aliases: [Pongal, Lohri, Magh Bihu, Uttarayan]
+    aliases: [Magh Bihu, Uttarayan]
     regions: [all]
+
+  - id: lohri
+    name: Lohri
+    description: Punjabi bonfire harvest festival — eve of Makar Sankranti
+    rule: sankranti
+    sankranti_index: 0
+    day_offset: -1       # celebrated the day before Makara Sankranti
+    regions: [punjab, north_india]
+
+  - id: pongal
+    name: Thai Pongal
+    description: Tamil harvest thanksgiving — first day of Thai month
+    rule: sankranti
+    sankranti_index: 0   # Makara Sankranti day (Thai 1)
+    aliases: [Thai Pongal, Makara Sankranti]
+    regions: [tamil_nadu, south_india]
 
   - id: baisakhi
     name: Baisakhi
@@ -657,6 +673,114 @@ festivals:
     duration_days: 9
     aliases: [Vasant Navaratri]
     regions: [north_india]
+
+  # ==========================================================================
+  # Additional major festivals — all lunar_month numbers are AMANT. Shukla-
+  # paksha entries share the amant/purnimant month name; the two amavasya
+  # entries (Shani Jayanti, Mahalaya) sit at the end of their amant month.
+  # ==========================================================================
+
+  - id: chaitra_purnima
+    name: Chaitra Purnima
+    description: Full moon of Chaitra — Chitra Pournami, Hanuman worship in the south
+    rule: tithi_at_sunrise
+    lunar_month: 1
+    tithi: 15            # Shukla Purnima
+    aliases: [Chitra Pournami]
+    regions: [all]
+
+  - id: sita_navami
+    name: Sita Navami
+    description: Birth of Sita (Janaki) — Vaishakha Shukla Navami
+    rule: tithi_at_sunrise
+    lunar_month: 2
+    tithi: 9             # Shukla Navami
+    aliases: [Janaki Navami]
+    regions: [north_india]
+
+  - id: narasimha_jayanti
+    name: Narasimha Jayanti
+    description: Appearance of Narasimha, the man-lion avatar of Vishnu
+    rule: tithi_at_sunrise
+    lunar_month: 2
+    tithi: 14           # Shukla Chaturdashi
+    # Narasimha appeared at dusk (sandhya) — the day with Chaturdashi
+    # prevailing at sayahna (evening) is observed (Dharma Sindhu).
+    priority: vyapti
+    kaala: saayaahna
+    regions: [all]
+
+  - id: shani_jayanti
+    name: Shani Jayanti
+    description: Birth of Shani (Saturn) — Jyeshtha Amavasya
+    rule: tithi_at_sunrise
+    # "Jyeshtha Amavasya" is the PURNIMANT label — the amavasya that ends
+    # the Krishna paksha of purnimant Jyeshtha, which is the amant Vaishakha
+    # (month 2) amavasya. (In an adhik-Jyeshtha year like 2026 this differs
+    # from the nija-Jyeshtha amavasya that Vat Savitri Amavasya uses.)
+    lunar_month: 2
+    tithi: 30           # Amavasya
+    aliases: [Shani Amavasya]
+    regions: [all]
+
+  - id: vaman_jayanti
+    name: Vaman Jayanti
+    description: Appearance of Vamana, the dwarf avatar of Vishnu
+    rule: tithi_at_sunrise
+    lunar_month: 6
+    tithi: 12           # Shukla Dvadashi
+    # Vamana appeared at midday — madhyahna-vyapti rule.
+    priority: vyapti
+    kaala: madhyahna
+    regions: [all]
+
+  - id: mahalaya_amavasya
+    name: Mahalaya Amavasya
+    description: Sarva Pitru Amavasya — end of Pitru Paksha, eve of Sharad Navaratri
+    rule: tithi_at_sunrise
+    lunar_month: 6
+    tithi: 30           # Amavasya (ending amant Bhadrapada)
+    aliases: [Sarva Pitru Amavasya, Mahalaya]
+    regions: [all]
+
+  - id: kali_puja
+    name: Kali Puja
+    description: Worship of Goddess Kali on Diwali night — Kartik Amavasya
+    rule: tithi_at_sunrise
+    lunar_month: 7
+    tithi: 30           # Amavasya (purnimant Kartik = amant Ashwin)
+    # Kali is worshipped at midnight — nishita-vyapti (distinguishes from
+    # Lakshmi Puja on the same amavasya, which uses pradosha).
+    priority: vyapti
+    kaala: nishita
+    aliases: [Shyama Puja]
+    regions: [bengal, east_india]
+
+  - id: skanda_sashti
+    name: Skanda Sashti
+    description: Kartikeya's victory over Surapadman — Kartik Shukla Shashti
+    rule: tithi_at_sunrise
+    lunar_month: 8
+    tithi: 6            # Shukla Shashti
+    aliases: [Kanda Sashti, Kartikeya Sashti]
+    regions: [tamil_nadu, south_india]
+
+  - id: gopashtami
+    name: Gopashtami
+    description: Krishna became a cowherd (gopa) — Kartik Shukla Ashtami
+    rule: tithi_at_sunrise
+    lunar_month: 8
+    tithi: 8            # Shukla Ashtami
+    regions: [north_india, braj]
+
+  - id: kartik_purnima
+    name: Kartik Purnima
+    description: Full moon of Kartik — Dev Diwali, Tripuri Purnima, Guru Nanak Jayanti
+    rule: tithi_at_sunrise
+    lunar_month: 8
+    tithi: 15           # Shukla Purnima
+    aliases: [Tripuri Purnima, Kartik Poornima, Guru Nanak Jayanti]
+    regions: [all]
 
 # ==========================================================================
 # Ekadashi names: 2 per lunar month (Shukla + Krishna), 24 total per year

@@ -270,6 +270,63 @@ class TestFestivals2026:
         assert dates[-1] - dates[0] < timedelta(days=15), "Diwali cluster must span < 15 days"
 
 
+# ─── Festivals added in the Tier-1/Tier-2 expansion ──────────────────────────
+
+# id -> date. Every date cross-verified against jyotisha v0.1.9 (Delhi 2026):
+# the jyotisha festival-id producing the same date is named in the comment.
+ADDED_FESTIVALS = {
+    "lohri": date(2026, 1, 13),  # jyotisha: bhOgi (Pongal eve)
+    "pongal": date(2026, 1, 14),  # jyotisha: makara-saGkramaNa-puNyakAlaH
+    "chaitra_purnima": date(2026, 4, 2),  # jyotisha: caitra-pUrNimA
+    "sita_navami": date(2026, 4, 25),  # jyotisha: sItAnavamI
+    "narasimha_jayanti": date(2026, 4, 30),  # jyotisha: nRsiMha~jayantI
+    "shani_jayanti": date(2026, 5, 16),  # jyotisha: zani~jayantI (Vaishakha amavasya)
+    "vaman_jayanti": date(2026, 9, 23),  # jyotisha: vAmana~jayantI
+    "mahalaya_amavasya": date(2026, 10, 10),  # jyotisha: sarva-(bhAdrapada)_mahAlaya_amAvAsyA
+    "kali_puja": date(2026, 11, 8),  # Diwali night (Kartik amavasya, nishita)
+    "skanda_sashti": date(2026, 11, 15),  # jyotisha: skandaSaSThI-vratam
+    "gopashtami": date(2026, 11, 17),  # jyotisha: gOpASTamI
+    "kartik_purnima": date(2026, 11, 24),  # jyotisha: kArttika-pUrNimA-snAnam
+}
+
+
+class TestAddedFestivals2026:
+    def test_added_festival_dates(self, festivals_2026_delhi):
+        fests = _by_id(festivals_2026_delhi)
+        for fid, expected in ADDED_FESTIVALS.items():
+            assert fid in fests, f"festival {fid} missing from 2026 output"
+            got = fests[fid].date
+            assert got == expected, (
+                f"{fid}: expected {expected}, got {got}. Reasoning: {fests[fid].reasoning}"
+            )
+
+    def test_lohri_is_makar_sankranti_eve(self, festivals_2026_delhi):
+        """day_offset regression: Lohri is always the day before Makar
+        Sankranti (any year), never a fixed Gregorian date."""
+        fests = _by_id(festivals_2026_delhi)
+        assert fests["makar_sankranti"].date - fests["lohri"].date == timedelta(days=1)
+
+    def test_pongal_matches_makar_sankranti(self, festivals_2026_delhi):
+        """Pongal (Thai 1) is the Makara Sankranti day itself."""
+        fests = _by_id(festivals_2026_delhi)
+        assert fests["pongal"].date == fests["makar_sankranti"].date
+
+    def test_shani_jayanti_distinct_from_vat_savitri(self, festivals_2026_delhi):
+        """In an adhik-Jyeshtha year, Shani Jayanti (purnimant Jyeshtha
+        amavasya = amant Vaishakha) precedes Vat Savitri Amavasya (nija
+        Jyeshtha amavasya). Regression for the purnimant-label month bug."""
+        fests = _by_id(festivals_2026_delhi)
+        assert fests["shani_jayanti"].date < fests["vat_savitri"].date
+
+    def test_kali_puja_and_diwali_same_amavasya(self, festivals_2026_delhi):
+        """Kali Puja shares Diwali's Kartik amavasya but uses nishita
+        (midnight), while Diwali uses pradosha."""
+        fests = _by_id(festivals_2026_delhi)
+        assert fests["kali_puja"].date == fests["diwali"].date
+        assert fests["kali_puja"].kaala_applied == "nishita"
+        assert fests["diwali"].kaala_applied == "pradosha"
+
+
 # ─── API footguns ────────────────────────────────────────────────────────────
 
 

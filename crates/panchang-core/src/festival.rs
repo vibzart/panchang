@@ -60,6 +60,10 @@ pub struct FestivalDef {
     /// Akshaya Tritiya). `true` → earlier day wins (e.g. Vijayadashami:
     /// "dinadvaye aparahna-vyaptau purva", Nirnaya Sindhu).
     pub vyapti_tie_purva: bool,
+    /// Days to shift the resolved date by, for festivals anchored to
+    /// another event's eve/morrow (e.g. Lohri = Makara Sankranti − 1).
+    /// 0 = no shift.
+    pub day_offset: i32,
     /// How to handle the adhika (intercalary) month for this festival.
     pub adhika_maasa: AdhikaMaasa,
 }
@@ -85,6 +89,7 @@ impl FestivalDef {
             priority: Priority::default(),
             kaala: Kaala::default(),
             vyapti_tie_purva: false,
+            day_offset: 0,
             adhika_maasa: AdhikaMaasa::default(),
         }
     }
@@ -929,6 +934,41 @@ fn resolve_sankranti_festival(
     })
 }
 
+/// Shift a resolved occurrence by `days` calendar days, recomputing its
+/// sunrise and sunrise-tithi. Used for festivals anchored to another
+/// event's eve/morrow (e.g. Lohri = Makara Sankranti − 1).
+fn shift_occurrence(
+    occ: FestivalOccurrence,
+    days: i32,
+    lat: f64,
+    lng: f64,
+    alt: f64,
+    utc_offset: i32,
+) -> FestivalOccurrence {
+    let shifted_midnight =
+        julian::midnight_jd(occ.year, occ.month, occ.day, utc_offset) + days as f64;
+    let sunrise = sun::sunrise_jd(shifted_midnight, lat, lng, alt);
+    let dt = local_date(sunrise, utc_offset);
+    let reasoning = format!(
+        "{} (anchor: {}-{:02}-{:02}, shifted {:+} day{}).",
+        occ.reasoning.trim_end_matches('.'),
+        occ.year,
+        occ.month,
+        occ.day,
+        days,
+        if days.abs() == 1 { "" } else { "s" },
+    );
+    FestivalOccurrence {
+        year: dt.year,
+        month: dt.month,
+        day: dt.day,
+        sunrise_jd: sunrise,
+        tithi_at_sunrise: tithi_at_jd(sunrise),
+        reasoning,
+        ..occ
+    }
+}
+
 /// Resolve a nakshatra-at-sunrise festival to a Gregorian date.
 ///
 /// Searches ±20 days around the Sankranti anchor for the day when the target
@@ -1046,7 +1086,12 @@ pub fn compute_festivals(
             _ => None,
         };
 
-        if let Some(occ) = occurrence {
+        if let Some(mut occ) = occurrence {
+            // Shift eve/morrow festivals (e.g. Lohri = Makara Sankranti − 1)
+            // before the year filter, so a shift across Jan 1 lands correctly.
+            if def.day_offset != 0 {
+                occ = shift_occurrence(occ, def.day_offset, lat, lng, alt, utc_offset);
+            }
             // Only include festivals that fall within the requested year
             if occ.year == year {
                 results.push(occ);
@@ -1492,6 +1537,7 @@ mod tests {
             priority: Priority::default(),
             kaala: Kaala::default(),
             vyapti_tie_purva: false,
+            day_offset: 0,
             adhika_maasa: AdhikaMaasa::default(),
         }];
         let results = compute_festivals(&defs, 2026, LAT, LNG, ALT, IST, CalendarSystem::Purnimant);
@@ -1605,6 +1651,7 @@ mod tests {
             priority: Priority::default(),
             kaala: Kaala::default(),
             vyapti_tie_purva: false,
+            day_offset: 0,
             adhika_maasa: AdhikaMaasa::default(),
         }];
 
@@ -1641,6 +1688,7 @@ mod tests {
             priority: Priority::default(),
             kaala: Kaala::default(),
             vyapti_tie_purva: false,
+            day_offset: 0,
             adhika_maasa: AdhikaMaasa::default(),
         }];
 
@@ -1756,6 +1804,63 @@ mod tests {
             "Diwali expected ~Nov 8, got Nov {}. Reasoning: {}",
             diw.day,
             diw.reasoning
+        );
+    }
+
+    #[test]
+    fn test_day_offset_shifts_resolved_date() {
+        ephemeris::init(None);
+
+        // Makara Sankranti and Lohri (= Sankranti − 1 day) should land on
+        // consecutive dates, with Lohri the earlier of the two.
+        let mut lohri = FestivalDef {
+            id: "lohri".into(),
+            name: "Lohri".into(),
+            rule: "sankranti".into(),
+            lunar_month: 0,
+            tithi: 0,
+            sankranti_index: Some(0),
+            nakshatra: None,
+            priority: Priority::default(),
+            kaala: Kaala::default(),
+            vyapti_tie_purva: false,
+            day_offset: -1,
+            adhika_maasa: AdhikaMaasa::default(),
+        };
+        let sankranti = FestivalDef {
+            day_offset: 0,
+            id: "makar_sankranti".into(),
+            name: "Makar Sankranti".into(),
+            ..lohri.clone()
+        };
+        lohri.day_offset = -1;
+
+        let res = compute_festivals(
+            &[sankranti, lohri],
+            2026,
+            LAT,
+            LNG,
+            ALT,
+            IST,
+            CalendarSystem::Purnimant,
+        );
+        let mk = res
+            .iter()
+            .find(|r| r.festival_id == "makar_sankranti")
+            .unwrap();
+        let lo = res.iter().find(|r| r.festival_id == "lohri").unwrap();
+        let mk_jd = julian::midnight_jd(mk.year, mk.month, mk.day, IST);
+        let lo_jd = julian::midnight_jd(lo.year, lo.month, lo.day, IST);
+        assert_eq!(
+            (mk_jd - lo_jd).round() as i64,
+            1,
+            "Lohri must be exactly one day before Makara Sankranti (Lohri {}-{:02}-{:02}, Sankranti {}-{:02}-{:02})",
+            lo.year, lo.month, lo.day, mk.year, mk.month, mk.day
+        );
+        assert!(
+            lo.reasoning.contains("shifted -1 day"),
+            "reasoning should note the shift: {}",
+            lo.reasoning
         );
     }
 

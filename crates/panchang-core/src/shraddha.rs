@@ -391,6 +391,7 @@ pub fn compute_shraddha_timeline(
         priority: crate::observance::Priority::Paraviddha,
         kaala: crate::observance::Kaala::Sunrise,
         vyapti_tie_purva: false,
+        day_offset: 0,
         adhika_maasa: crate::observance::AdhikaMaasa::Nija,
     };
     let defs = vec![def];
@@ -494,6 +495,7 @@ pub fn compute_shraddha(
         priority: crate::observance::Priority::Paraviddha,
         kaala: crate::observance::Kaala::Sunrise,
         vyapti_tie_purva: false,
+        day_offset: 0,
         adhika_maasa: crate::observance::AdhikaMaasa::Nija,
     };
 

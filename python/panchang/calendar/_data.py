@@ -40,6 +40,7 @@ def get_festival_defs() -> list[dict]:
         - priority                    (optional: paraviddha | puurvaviddha | vyapti)
         - kaala                       (optional: sunrise | aparahna | ... — for vyapti)
         - vyapti_tie                  (optional: purva | para — both-days vyapti tie-break)
+        - day_offset                  (optional int: shift resolved date; Lohri = Sankranti - 1)
         - adhika_maasa                (optional: nija | adhika | adhika_and_nija | adhika_if_exists)
 
     Unknown values for the optional observance fields fall through to Rust defaults
@@ -61,6 +62,7 @@ def get_festival_defs() -> list[dict]:
                 "priority": f.get("priority"),
                 "kaala": f.get("kaala"),
                 "vyapti_tie": f.get("vyapti_tie"),
+                "day_offset": f.get("day_offset"),
                 "adhika_maasa": f.get("adhika_maasa"),
             }
         )
